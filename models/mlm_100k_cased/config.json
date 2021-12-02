@@ -1,0 +1,51 @@
+{
+  "_name_or_path": "bert-base-cased",
+  "adapters": {
+    "adapters": {
+      "mlm": "b1017368d7a97b11"
+    },
+    "config_map": {
+      "b1017368d7a97b11": {
+        "adapter_residual_before_ln": false,
+        "cross_adapter": false,
+        "inv_adapter": null,
+        "inv_adapter_reduction_factor": null,
+        "leave_out": [],
+        "ln_after": false,
+        "ln_before": false,
+        "mh_adapter": true,
+        "non_linearity": "swish",
+        "original_ln_after": true,
+        "original_ln_before": false,
+        "output_adapter": true,
+        "reduction_factor": 16,
+        "residual_before_ln": true
+      }
+    },
+    "fusion_config_map": {},
+    "fusions": {}
+  },
+  "architectures": [
+    "BertForMaskedLM"
+  ],
+  "attention_probs_dropout_prob": 0.1,
+  "classifier_dropout": null,
+  "gradient_checkpointing": false,
+  "hidden_act": "gelu",
+  "hidden_dropout_prob": 0.1,
+  "hidden_size": 768,
+  "initializer_range": 0.02,
+  "intermediate_size": 3072,
+  "layer_norm_eps": 1e-12,
+  "max_position_embeddings": 512,
+  "model_type": "bert",
+  "num_attention_heads": 12,
+  "num_hidden_layers": 12,
+  "pad_token_id": 0,
+  "position_embedding_type": "absolute",
+  "torch_dtype": "float32",
+  "transformers_version": "4.11.3",
+  "type_vocab_size": 2,
+  "use_cache": true,
+  "vocab_size": 28996
+}

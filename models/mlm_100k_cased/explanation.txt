@@ -1,0 +1,1 @@
+100k iterations on ConceptNet Graph, LM adapter from AdapterHub, trained on Fox HPC
