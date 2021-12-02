@@ -33,12 +33,13 @@ module load Python/3.8.6-GCCcore-10.2.0
 export PS1=\$
 source venv/bin/activate
 
-
+file=$1
 # print information (optional)
 echo "submission directory: ${SUBMITDIR}"
 ulimit -a
 module list
 
 # by default, pass on any remaining command-line options
-chmod u+x ${1}
-${1}
+echo $file
+chmod u+x $file
+./$file

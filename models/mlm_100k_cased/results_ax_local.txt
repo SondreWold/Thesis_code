@@ -201,7 +201,7 @@ index	prediction
 199	neutral
 200	entailment
 201	neutral
-202	entailment
+202	neutral
 203	neutral
 204	entailment
 205	entailment
@@ -322,7 +322,7 @@ index	prediction
 320	contradiction
 321	entailment
 322	neutral
-323	contradiction
+323	neutral
 324	neutral
 325	contradiction
 326	neutral

@@ -1,0 +1,73 @@
+Starting job 17514 on gpu-1 at Thu Dec 2 20:33:08 CET 2021
+
+submission directory: /fp/homes01/u01/ec-sondrewo/Thesis_code
+core file size          (blocks, -c) unlimited
+data seg size           (kbytes, -d) unlimited
+scheduling priority             (-e) 0
+file size               (blocks, -f) unlimited
+pending signals                 (-i) 4126435
+max locked memory       (kbytes, -l) unlimited
+max memory size         (kbytes, -m) 20971520
+open files                      (-n) 131072
+pipe size            (512 bytes, -p) 8
+POSIX message queues     (bytes, -q) 819200
+real-time priority              (-r) 0
+stack size              (kbytes, -s) unlimited
+cpu time               (seconds, -t) unlimited
+max user processes              (-u) 4126435
+virtual memory          (kbytes, -v) unlimited
+file locks                      (-x) unlimited
+
+Currently Loaded Modules:
+  1) GCCcore/10.2.0                   7) Tcl/8.6.10-GCCcore-10.2.0
+  2) zlib/1.2.11-GCCcore-10.2.0       8) SQLite/3.33.0-GCCcore-10.2.0
+  3) binutils/2.35-GCCcore-10.2.0     9) XZ/5.2.5-GCCcore-10.2.0
+  4) bzip2/1.0.8-GCCcore-10.2.0      10) GMP/6.2.0-GCCcore-10.2.0
+  5) ncurses/6.2-GCCcore-10.2.0      11) libffi/3.3-GCCcore-10.2.0
+  6) libreadline/8.0-GCCcore-10.2.0  12) Python/3.8.6-GCCcore-10.2.0
+
+ 
+
+run_diagnostic.sh
+12/02/2021 20:33:14 - WARNING - datasets.builder - Reusing dataset glue (/fp/homes01/u01/ec-sondrewo/.cache/huggingface/datasets/glue/ax/1.0.0/dacbe3125aa31d7f70367a07a8a9e72a5a0bfeb5fc42e75c9db75b96da6053ad)
+  0%|          | 0/1 [00:00<?, ?it/s]100%|██████████| 1/1 [00:00<00:00, 336.59it/s]
+12/02/2021 20:33:14 - INFO - __main__ - Labels for dataset: ax: ['entailment', 'neutral', 'contradiction']
+Some weights of the model checkpoint at ./models/mlm_100k_cased were not used when initializing BertForSequenceClassification: ['cls.predictions.decoder.weight', 'cls.predictions.transform.dense.bias', 'cls.predictions.bias', 'cls.predictions.transform.LayerNorm.bias', 'cls.predictions.decoder.bias', 'cls.predictions.transform.dense.weight', 'cls.predictions.transform.LayerNorm.weight']
+- This IS expected if you are initializing BertForSequenceClassification from the checkpoint of a model trained on another task or with another architecture (e.g. initializing a BertForSequenceClassification model from a BertForPreTraining model).
+- This IS NOT expected if you are initializing BertForSequenceClassification from the checkpoint of a model that you expect to be exactly identical (initializing a BertForSequenceClassification model from a BertForSequenceClassification model).
+Some weights of BertForSequenceClassification were not initialized from the model checkpoint at ./models/mlm_100k_cased and are newly initialized: ['classifier.bias', 'bert.pooler.dense.bias', 'bert.pooler.dense.weight', 'classifier.weight']
+You should probably TRAIN this model on a down-stream task to be able to use it for predictions and inference.
+Downloading:   0%|          | 0.00/1.50k [00:00<?, ?B/s]Downloading: 3.24kB [00:00, 4.54MB/s]                   
+  0%|          | 0/2 [00:00<?, ?ba/s] 50%|█████     | 1/2 [00:00<00:00,  7.16ba/s]100%|██████████| 2/2 [00:00<00:00, 13.49ba/s]
+12/02/2021 20:33:22 - INFO - __main__ - Sample 228 of the training set: {'attention_mask': [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], 'input_ids': [101, 1130, 1142, 2526, 117, 1195, 1675, 1126, 3136, 1106, 9703, 23594, 2952, 3044, 1121, 8362, 25198, 1181, 2379, 1846, 3087, 119, 102, 1284, 1675, 1107, 1142, 2526, 1126, 3136, 1106, 9703, 23594, 2952, 3044, 1121, 8362, 25198, 1181, 2379, 1846, 3087, 119, 102, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], 'label': -1, 'token_type_ids': [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]}.
+12/02/2021 20:33:22 - INFO - __main__ - Sample 51 of the training set: {'attention_mask': [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], 'input_ids': [101, 7665, 1144, 3933, 4167, 10517, 1112, 107, 1821, 3965, 2340, 107, 1672, 10020, 1115, 14255, 6732, 2732, 2781, 1137, 9709, 1113, 1234, 1690, 1107, 1103, 1583, 19241, 119, 102, 7665, 1144, 3933, 4167, 10517, 1112, 107, 1821, 3965, 2340, 107, 1672, 2714, 1115, 14255, 6732, 2732, 2781, 1137, 9709, 1113, 1234, 1690, 1107, 1103, 1583, 19241, 119, 102, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], 'label': -1, 'token_type_ids': [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]}.
+12/02/2021 20:33:22 - INFO - __main__ - Sample 563 of the training set: {'attention_mask': [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], 'input_ids': [101, 1109, 6371, 6927, 112, 188, 1534, 2010, 112, 189, 1129, 1103, 1148, 4276, 2133, 5172, 1127, 7458, 1290, 1340, 1504, 119, 102, 1109, 6371, 6927, 112, 188, 1534, 2010, 112, 189, 1129, 1103, 1148, 7721, 4276, 2133, 5172, 1127, 7458, 1290, 1340, 1504, 119, 102, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], 'label': -1, 'token_type_ids': [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]}.
+12/02/2021 20:33:22 - INFO - __main__ - *** Predict ***
+***** Running Prediction *****
+  Num examples = 1104
+  Batch size = 8
+  0%|          | 0/138 [00:00<?, ?it/s]  6%|▌         | 8/138 [00:00<00:01, 74.56it/s] 12%|█▏        | 16/138 [00:00<00:01, 69.04it/s] 17%|█▋        | 23/138 [00:00<00:01, 67.57it/s] 22%|██▏       | 30/138 [00:00<00:01, 66.85it/s] 27%|██▋       | 37/138 [00:00<00:01, 66.43it/s] 32%|███▏      | 44/138 [00:00<00:01, 66.17it/s] 37%|███▋      | 51/138 [00:00<00:01, 66.06it/s] 42%|████▏     | 58/138 [00:00<00:01, 66.01it/s] 47%|████▋     | 65/138 [00:00<00:01, 65.81it/s] 52%|█████▏    | 72/138 [00:01<00:01, 65.82it/s] 57%|█████▋    | 79/138 [00:01<00:00, 65.80it/s] 62%|██████▏   | 86/138 [00:01<00:00, 65.81it/s] 67%|██████▋   | 93/138 [00:01<00:00, 65.74it/s] 72%|███████▏  | 100/138 [00:01<00:00, 65.75it/s] 78%|███████▊  | 107/138 [00:01<00:00, 65.75it/s] 83%|████████▎ | 114/138 [00:01<00:00, 65.70it/s] 88%|████████▊ | 121/138 [00:01<00:00, 65.76it/s] 93%|█████████▎| 128/138 [00:01<00:00, 65.70it/s] 98%|█████████▊| 135/138 [00:02<00:00, 65.77it/s]12/02/2021 20:33:30 - INFO - __main__ - ***** Predict results ax *****
+100%|██████████| 138/138 [00:02<00:00, 64.50it/s]
+
+Task and CPU usage stats:
+       JobID    JobName  AllocCPUS   NTasks     MinCPU MinCPUTask     AveCPU    Elapsed ExitCode 
+------------ ---------- ---------- -------- ---------- ---------- ---------- ---------- -------- 
+17514        thesisWork          2                                             00:00:25      0:0 
+17514.batch       batch          2        1   00:00:09          0   00:00:09   00:00:25      0:0 
+17514.extern     extern          2        1   00:00:00          0   00:00:00   00:00:25      0:0 
+
+Memory usage stats:
+       JobID     MaxRSS MaxRSSTask     AveRSS MaxPages   MaxPagesTask   AvePages 
+------------ ---------- ---------- ---------- -------- -------------- ---------- 
+17514                                                                            
+17514.batch        192K          0       192K        0              0          0 
+17514.extern          0          0          0        0              0          0 
+
+Disk usage stats:
+       JobID  MaxDiskRead MaxDiskReadTask    AveDiskRead MaxDiskWrite MaxDiskWriteTask   AveDiskWrite 
+------------ ------------ --------------- -------------- ------------ ---------------- -------------- 
+17514                                                                                                 
+17514.batch             0               0              0            0                0              0 
+17514.extern        0.01M               0          0.01M            0                0              0 
+
+Job 17514 completed at Thu Dec 2 20:33:33 CET 2021
