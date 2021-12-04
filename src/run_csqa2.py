@@ -639,11 +639,15 @@ def main():
         model.eval()
         for step, batch in enumerate(eval_dataloader):
             with torch.no_grad():
-                outputs = model(**batch)
+                inputs = {'input_ids': batch[0],
+                          'attention_mask': batch[1],
+                          'token_type_ids': batch[2],
+                          'labels': batch[3]}
+                outputs = model(**inputs)
             predictions = outputs.logits.argmax(dim=-1)
             metric.add_batch(
                 predictions=accelerator.gather(predictions),
-                references=accelerator.gather(batch["labels"]),
+                references=accelerator.gather(inputs["labels"]),
             )
 
         eval_metric = metric.compute()
