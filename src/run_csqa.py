@@ -95,7 +95,7 @@ def load_optimizer(args, model, train_size):
     ]
 
     optimizer = AdamW(
-        optimizer_grouped_parameters, lr=args.learning_rate, eps=args.adam_epsilon)
+        optimizer_grouped_parameters, lr=args.learning_rate)
     scheduler = get_linear_schedule_with_warmup(
         optimizer, num_warmup_steps=args.warmup_steps, num_training_steps=num_training_steps)
 
@@ -388,10 +388,11 @@ def train(args, model, tokenizer):
 
     for _ in train_iterator:
 
-        model.train()
         epoch_iterator = tqdm(dataloader_tr, desc="Iteration",
                               disable=False, leave=True, position=1)
         for step, batch in enumerate(epoch_iterator):
+            model.train()
+            model.zero_grad()
 
             batch = tuple(b.to(args.device) for b in batch)
             inputs = {'input_ids': batch[0],
@@ -409,17 +410,16 @@ def train(args, model, tokenizer):
 
             optimizer.step()
             scheduler.step()
-            model.zero_grad()
+
             num_steps += 1
 
-        model.eval()
         results = evaluate(args, model, dataloader_val)
         logger.info(
             f"\n Epoch {epoch_c} evaluation: val acc:{results['val_acc']}, val loss: {results['val_loss']}")
         epoch_c += 1
 
     loss = tr_loss / num_steps
-    return best_model
+    return model
 
 
 def evaluate(args, model, dataloader):
@@ -430,9 +430,9 @@ def evaluate(args, model, dataloader):
 
     results = {}
 
-    model.eval()
     for batch in tqdm(dataloader, desc="Validation", disable=True, leave=True, position=1):
         batch = tuple(t.to(args.device) for t in batch)
+        model.eval()
 
         with torch.no_grad():
             inputs = {'input_ids': batch[0],
