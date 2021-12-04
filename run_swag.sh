@@ -2,7 +2,7 @@ MODEL="./models/mlm_100k_cased" #No trailing / !!
 TOKENIZER="bert-base-cased"
 DATASET_NAME=swag
 
-python src/run_common_sense_qa.py \
+python src/run_swag_qa.py \
   --model_name_or_path $MODEL \
   --tokenizer_name $TOKENIZER \
   --dataset_name $DATASET_NAME \
