@@ -382,7 +382,6 @@ def train(args, model, tokenizer):
     best_model = None
     epoch_c = 0
 
-    model.zero_grad()
     train_iterator = trange(int(args.num_train_epochs),
                             desc="Epoch", disable=False, leave=True, position=1)
 
@@ -403,8 +402,6 @@ def train(args, model, tokenizer):
             loss = outputs[0]
 
             loss.backward()
-            torch.nn.utils.clip_grad_norm_(
-                model.parameters(), args.max_grad_norm)
 
             tr_loss += loss.item()
 
@@ -459,6 +456,7 @@ def evaluate(args, model, dataloader):
     acc = (preds == labels).mean()
     result = {"val_acc": acc, "val_loss": loss}
     results.update(result)
+    logger.info("Updated results")
 
     return results
 

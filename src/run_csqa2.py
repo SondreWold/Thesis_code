@@ -26,12 +26,13 @@ import random
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional, Union
-
+from torch.utils.data import TensorDataset, DataLoader, RandomSampler, SequentialSampler
 import datasets
 import torch
 from datasets import load_dataset, load_metric
 from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
+import numpy as np
 import transformers
 from accelerate import Accelerator
 from huggingface_hub import Repository
@@ -79,7 +80,7 @@ def parse_args():
         "--validation_file", type=str, default=None, help="A csv or a json file containing the validation data."
     )
     parser.add_argument(
-        "--max_length",
+        "--max_seq_length",
         type=int,
         default=128,
         help=(
@@ -122,7 +123,7 @@ def parse_args():
         help="If passed, will use a slow tokenizer (not backed by the 🤗 Tokenizers library).",
     )
     parser.add_argument(
-        "--per_device_train_batch_size",
+        "--batch_size",
         type=int,
         default=8,
         help="Batch size (per device) for the training dataloader.",
@@ -197,66 +198,265 @@ def parse_args():
     return args
 
 
-@dataclass
-class DataCollatorForMultipleChoice:
+def load_data():
+    ds = load_dataset('commonsense_qa')
+    return ds
+
+
+class InputExample(object):
     """
-    Data collator that will dynamically pad the inputs for multiple choice received.
-
-    Args:
-        tokenizer (:class:`~transformers.PreTrainedTokenizer` or :class:`~transformers.PreTrainedTokenizerFast`):
-            The tokenizer used for encoding the data.
-        padding (:obj:`bool`, :obj:`str` or :class:`~transformers.file_utils.PaddingStrategy`, `optional`, defaults to :obj:`True`):
-            Select a strategy to pad the returned sequences (according to the model's padding side and padding index)
-            among:
-
-            * :obj:`True` or :obj:`'longest'`: Pad to the longest sequence in the batch (or no padding if only a single
-            sequence if provided).
-            * :obj:`'max_length'`: Pad to a maximum length specified with the argument :obj:`max_length` or to the
-            maximum acceptable input length for the model if that argument is not provided.
-            * :obj:`False` or :obj:`'do_not_pad'` (default): No padding (i.e., can output a batch with sequences of
-            different lengths).
-        max_length (:obj:`int`, `optional`):
-            Maximum length of the returned list and optionally padding length (see above).
-        pad_to_multiple_of (:obj:`int`, `optional`):
-            If set will pad the sequence to a multiple of the provided value.
-
-            This is especially useful to enable the use of Tensor Cores on NVIDIA hardware with compute capability >=
-            7.5 (Volta).
+    A single multiple choice question.
     """
 
-    tokenizer: PreTrainedTokenizerBase
-    padding: Union[bool, str, PaddingStrategy] = True
-    max_length: Optional[int] = None
-    pad_to_multiple_of: Optional[int] = None
+    def __init__(self, example_id, question, answers, label):
+        self.example_id = example_id
+        self.question = question
+        self.answers = answers
+        self.label = label
 
-    def __call__(self, features):
-        label_name = "label" if "label" in features[0].keys() else "labels"
-        labels = [feature.pop(label_name) for feature in features]
-        batch_size = len(features)
-        num_choices = len(features[0]["input_ids"])
-        flattened_features = [
-            [{k: v[i] for k, v in feature.items()} for i in range(num_choices)] for feature in features
+
+class InputFeatures(object):
+    """
+    A single feature converted from an example.
+    """
+
+    def __init__(self, example_id, choices_features, label):
+        self.example_id = example_id
+        self.label = label
+        self.choices_features = [
+            {'input_ids': input_ids, 'input_mask': input_mask,
+                'segment_ids': segment_ids}
+            for _, input_ids, input_mask, segment_ids in choices_features
         ]
-        flattened_features = sum(flattened_features, [])
 
-        batch = self.tokenizer.pad(
-            flattened_features,
-            padding=self.padding,
-            max_length=self.max_length,
-            pad_to_multiple_of=self.pad_to_multiple_of,
-            return_tensors="pt",
-        )
 
-        # Un-flatten
-        batch = {k: v.view(batch_size, num_choices, -1)
-                 for k, v in batch.items()}
-        # Add back labels
-        batch["labels"] = torch.tensor(labels, dtype=torch.int64)
-        return batch
+class CommonsenseQAProcessor:
+    """
+    A Commonsense QA Data Processor
+    """
+
+    def __init__(self):
+        self.dataset = None
+        self.labels = [0, 1, 2, 3, 4]
+        self.LABELS = ['A', 'B', 'C', 'D', 'E']
+
+    def get_split(self, split='train'):
+        if self.dataset is None:
+            self.dataset = load_data()
+        return self.dataset[split]
+
+    def create_examples(self, split='train'):
+        examples = []
+        data_tr = self.get_split(split)
+        example_id = 0
+
+        for question, choices, answerKey in zip(data_tr['question'], data_tr['choices'], data_tr['answerKey']):
+            answers = np.array(choices['text'])
+            label = self.LABELS.index(answerKey)
+            examples.append(InputExample(
+                example_id=example_id, question=question,
+                answers=answers, label=label
+            ))
+            example_id += 1
+
+        return examples
+
+
+def truncate_seq_pair(tokens_a, tokens_b, max_length):
+    """
+    Truncates a sequence pair in place to the maximum length.
+
+    This is a simple heuristic which will always truncate the longer sequence one token at a time.
+    This makes more sense than truncating an equal percent of tokens from each,
+    since if one sequence is very short then each token that's truncated
+    likely contains more information than a longer sequence.
+
+    However, since we'd better not to remove tokens of options and questions,
+    you can choose to use a bigger length or only pop from context
+    """
+
+    while True:
+        total_length = len(tokens_a) + len(tokens_b)
+        if total_length <= max_length:
+            break
+        if len(tokens_a) > len(tokens_b):
+            tokens_a.pop()
+        else:
+            warning = 'Attention! you are removing from token_b (swag task is ok). ' \
+                      'If you are training ARC and RACE (you are popping question + options), ' \
+                      'you need to try to use a bigger max seq length!'
+            print(warning)
+            tokens_b.pop()
+
+
+def examples_to_features(examples, label_list, max_seq_length, tokenizer,
+                         cls_token_at_end=False,
+                         cls_token='[CLS]',
+                         cls_token_segment_id=1,
+                         sep_token='[SEP]',
+                         sequence_a_segment_id=0,
+                         sequence_b_segment_id=1,
+                         sep_token_extra=False,
+                         pad_token_segment_id=0,
+                         pad_on_left=False,
+                         pad_token=0,
+                         mask_padding_with_zero=True):
+    """
+    Convert Commonsense QA examples to features.
+
+    The convention in BERT is:
+    (a) For sequence pairs:
+    tokens:   [CLS] is this jack ##son ##ville ? [SEP] no it is not . [SEP]
+    type_ids:   0   0  0    0    0     0       0   0   1  1  1  1   1   1
+
+    (b) For single sequences:
+    tokens:   [CLS] the dog is hairy . [SEP]
+    type_ids:   0   0   0   0  0     0   0
+
+    Where "type_ids" are used to indicate whether this is the first sequence or the second sequence.
+    The embedding vectors for `type=0` and `type=1` were learned during pre-training
+    and are added to the word piece embedding vector (and position vector).
+    This is not *strictly* necessary since the [SEP] token unambiguously separates the sequences,
+    but it makes it easier for the model to learn the concept of sequences.
+
+    For classification tasks, the first vector (corresponding to [CLS]) is used as as the "sentence vector".
+    Note that this only makes sense because the entire model is fine-tuned.
+    """
+
+    label_map = {label: i for i, label in enumerate(label_list)}
+
+    features = []
+    for (ex_index, example) in tqdm(enumerate(examples), desc="Converting examples to features", disable=True):
+
+        choices_features = []
+        for ending_idx, (question, answers) in enumerate(zip(example.question, example.answers)):
+
+            tokens_a = tokenizer.tokenize(example.question)
+            if example.question.find("_") != -1:
+                tokens_b = tokenizer.tokenize(
+                    example.question.replace("_", answers))
+            else:
+                tokens_b = tokenizer.tokenize(answers)
+
+            special_tokens_count = 4 if sep_token_extra else 3
+            truncate_seq_pair(tokens_a, tokens_b,
+                              max_seq_length - special_tokens_count)
+
+            tokens = tokens_a + [sep_token]
+            if sep_token_extra:
+                tokens += [sep_token]
+
+            segment_ids = [sequence_a_segment_id] * len(tokens)
+
+            if tokens_b:
+                tokens += tokens_b + [sep_token]
+                segment_ids += [sequence_b_segment_id] * (len(tokens_b) + 1)
+
+            if cls_token_at_end:
+                tokens = tokens + [cls_token]
+                segment_ids = segment_ids + [cls_token_segment_id]
+            else:
+                tokens = [cls_token] + tokens
+                segment_ids = [cls_token_segment_id] + segment_ids
+
+            input_ids = tokenizer.convert_tokens_to_ids(tokens)
+
+            # The mask has 1 for real tokens and 0 for padding tokens.
+            # Only real tokens are attended to.
+            input_mask = [1 if mask_padding_with_zero else 0] * len(input_ids)
+
+            # Zero-pad up to the sequence length.
+            padding_length = max_seq_length - len(input_ids)
+
+            if pad_on_left:
+                input_ids = ([pad_token] * padding_length) + input_ids
+                input_mask = ([0 if mask_padding_with_zero else 1]
+                              * padding_length) + input_mask
+                segment_ids = ([pad_token_segment_id] *
+                               padding_length) + segment_ids
+
+            else:
+                input_ids = input_ids + ([pad_token] * padding_length)
+                input_mask = input_mask + \
+                    ([0 if mask_padding_with_zero else 1] * padding_length)
+                segment_ids = segment_ids + \
+                    ([pad_token_segment_id] * padding_length)
+
+            assert len(input_ids) == max_seq_length
+            assert len(input_mask) == max_seq_length
+            assert len(segment_ids) == max_seq_length
+
+            choices_features.append(
+                (tokens, input_ids, input_mask, segment_ids))
+
+        label = label_map[example.label]
+
+        if ex_index < 0:
+            print("*** Example ***")
+            print("race_id: {}".format(example.example_id))
+            for choice_idx, (tokens, input_ids, input_mask, segment_ids) in enumerate(choices_features):
+                print("choice: {}".format(choice_idx))
+                print("tokens: {}".format(' '.join(tokens)))
+                print("input_ids: {}".format(' '.join(map(str, input_ids))))
+                print("input_mask: {}".format(' '.join(map(str, input_mask))))
+                print("segment_ids: {}".format(
+                    ' '.join(map(str, segment_ids))))
+                print("label: {}".format(label))
+
+        features.append(InputFeatures(
+            example_id=example.example_id,
+            choices_features=choices_features,
+            label=label
+        ))
+
+    return features
+
+
+def load_features(args, tokenizer, mode='train'):
+    """
+    Load the processed Commonsense QA dataset
+    """
+
+    def select_field(feature_list, field_name):
+        return [
+            [choice[field_name] for choice in feature.choices_features]
+            for feature in feature_list
+        ]
+
+    assert mode in {'train', 'validation', 'test'}
+    print("Creating features from dataset...")
+
+    processor = CommonsenseQAProcessor()
+    label_list = processor.labels
+    examples = processor.create_examples(split=mode)
+
+    print("Training number:", str(len(examples)))
+    features = examples_to_features(examples, label_list, args.max_seq_length, tokenizer,
+                                    cls_token_at_end=False,
+                                    cls_token=tokenizer.cls_token,
+                                    sep_token=tokenizer.sep_token,
+                                    sep_token_extra=False,
+                                    cls_token_segment_id=0,
+                                    pad_on_left=False,
+                                    pad_token_segment_id=0)
+
+    # Convert to Tensors and build dataset
+    all_input_ids = torch.tensor(select_field(
+        features, 'input_ids'), dtype=torch.long)
+    all_input_mask = torch.tensor(select_field(
+        features, 'input_mask'), dtype=torch.long)
+    all_segment_ids = torch.tensor(select_field(
+        features, 'segment_ids'), dtype=torch.long)
+    all_label_ids = torch.tensor([f.label for f in features], dtype=torch.long)
+
+    dataset = TensorDataset(all_input_ids, all_input_mask,
+                            all_segment_ids, all_label_ids)
+    return dataset
 
 
 def main():
     args = parse_args()
+    device = "cpu"
 
     # Initialize the accelerator. We will let the accelerator handle device placement for us in this example.
     accelerator = Accelerator()
@@ -296,49 +496,6 @@ def main():
             os.makedirs(args.output_dir, exist_ok=True)
     accelerator.wait_for_everyone()
 
-    # Get the datasets: you can either provide your own CSV/JSON/TXT training and evaluation files (see below)
-    # or just provide the name of one of the public datasets available on the hub at https://huggingface.co/datasets/
-    # (the dataset will be downloaded automatically from the datasets Hub).
-    #
-    # For CSV/JSON files, this script will use the column called 'text' or the first column if no column called
-    # 'text' is found. You can easily tweak this behavior (see below).
-    #
-    # In distributed training, the load_dataset function guarantee that only one local process can concurrently
-    # download the dataset.
-    if args.dataset_name is not None:
-        # Downloading and loading a dataset from the hub.
-        raw_datasets = load_dataset(
-            args.dataset_name, args.dataset_config_name)
-    else:
-        data_files = {}
-        if args.train_file is not None:
-            data_files["train"] = args.train_file
-        if args.validation_file is not None:
-            data_files["validation"] = args.validation_file
-        extension = args.train_file.split(".")[-1]
-        raw_datasets = load_dataset(extension, data_files=data_files)
-    # Trim a number of training examples
-    if args.debug:
-        for split in raw_datasets.keys():
-            raw_datasets[split] = raw_datasets[split].select(range(100))
-    # See more about loading any type of standard or custom dataset (from files, python dict, pandas DataFrame, etc) at
-    # https://huggingface.co/docs/datasets/loading_datasets.html.
-
-    if raw_datasets["train"] is not None:
-        column_names = raw_datasets["train"].column_names
-    else:
-        column_names = raw_datasets["validation"].column_names
-
-    # When using your own dataset or a different dataset from swag, you will probably need to change this.
-    ending_names = [f"ending{i}" for i in range(4)]
-    context_name = "sent1"
-    question_header_name = "sent2"
-    label_column_name = "label" if "label" in column_names else "labels"
-
-    # Load pretrained model and tokenizer
-    #
-    # In distributed training, the .from_pretrained methods guarantee that only one local process can concurrently
-    # download model & vocab.
     if args.config_name:
         config = AutoConfig.from_pretrained(args.model_name_or_path)
     elif args.model_name_or_path:
@@ -381,66 +538,17 @@ def main():
 
     model.resize_token_embeddings(len(tokenizer))
 
-    # Preprocessing the datasets.
-    # First we tokenize all the texts.
-    padding = "max_length" if args.pad_to_max_length else False
-
-    def preprocess_function(examples):
-        first_sentences = [[context] * 4 for context in examples[context_name]]
-        question_headers = examples[question_header_name]
-        second_sentences = [
-            [f"{header} {examples[end][i]}" for end in ending_names] for i, header in enumerate(question_headers)
-        ]
-        labels = examples[label_column_name]
-
-        # Flatten out
-        first_sentences = sum(first_sentences, [])
-        second_sentences = sum(second_sentences, [])
-
-        # Tokenize
-        tokenized_examples = tokenizer(
-            first_sentences,
-            second_sentences,
-            max_length=args.max_length,
-            padding=padding,
-            truncation=True,
-        )
-        # Un-flatten
-        tokenized_inputs = {k: [
-            v[i: i + 4] for i in range(0, len(v), 4)] for k, v in tokenized_examples.items()}
-        tokenized_inputs["labels"] = labels
-        return tokenized_inputs
-
-    processed_datasets = raw_datasets.map(
-        preprocess_function, batched=True, remove_columns=raw_datasets["train"].column_names
-    )
-
-    train_dataset = processed_datasets["train"]
-    eval_dataset = processed_datasets["validation"]
-
-    # Log a few random samples from the training set:
-    for index in random.sample(range(len(train_dataset)), 3):
-        logger.info(
-            f"Sample {index} of the training set: {train_dataset[index]}.")
-
-    # DataLoaders creation:
-    if args.pad_to_max_length:
-        # If padding was already done ot max length, we use the default data collator that will just convert everything
-        # to tensors.
-        data_collator = default_data_collator
-    else:
-        # Otherwise, `DataCollatorWithPadding` will apply dynamic padding for us (by padding to the maximum length of
-        # the samples passed). When using mixed precision, we add `pad_to_multiple_of=8` to pad all tensors to multiple
-        # of 8s, which will enable the use of Tensor Cores on NVIDIA hardware with compute capability >= 7.5 (Volta).
-        data_collator = DataCollatorForMultipleChoice(
-            tokenizer, pad_to_multiple_of=(8 if accelerator.use_fp16 else None)
-        )
-
+    print('\n Loading training dataset')
+    dataset_tr = load_features(args, tokenizer, mode='train')
+    sampler_tr = RandomSampler(dataset_tr)
     train_dataloader = DataLoader(
-        train_dataset, shuffle=True, collate_fn=data_collator, batch_size=args.per_device_train_batch_size
-    )
+        dataset_tr, sampler=sampler_tr, batch_size=args.batch_size)
+
+    print('\n Loading validation dataset')
+    dataset_val = load_features(args, tokenizer, 'validation')
+    sampler_val = SequentialSampler(dataset_val)
     eval_dataloader = DataLoader(
-        eval_dataset, collate_fn=data_collator, batch_size=args.per_device_eval_batch_size)
+        dataset_val, sampler=sampler_val, batch_size=args.batch_size)
 
     # Optimizer
     # Split weights in two groups, one with weight decay and the other not.
@@ -489,14 +597,14 @@ def main():
     metric = load_metric("accuracy")
 
     # Train!
-    total_batch_size = args.per_device_train_batch_size * \
+    total_batch_size = args.batch_size * \
         accelerator.num_processes * args.gradient_accumulation_steps
 
     logger.info("***** Running training *****")
-    logger.info(f"  Num examples = {len(train_dataset)}")
+    logger.info(f"  Num examples = {len(dataset_tr)}")
     logger.info(f"  Num Epochs = {args.num_train_epochs}")
     logger.info(
-        f"  Instantaneous batch size per device = {args.per_device_train_batch_size}")
+        f"  Instantaneous batch size per device = {args.batch_size}")
     logger.info(
         f"  Total train batch size (w. parallel, distributed & accumulation) = {total_batch_size}")
     logger.info(
@@ -510,7 +618,11 @@ def main():
     for epoch in range(args.num_train_epochs):
         model.train()
         for step, batch in enumerate(train_dataloader):
-            outputs = model(**batch)
+            inputs = {'input_ids': batch[0],
+                      'attention_mask': batch[1],
+                      'token_type_ids': batch[2],
+                      'labels': batch[3]}
+            outputs = model(**inputs)
             loss = outputs.loss
             loss = loss / args.gradient_accumulation_steps
             accelerator.backward(loss)
