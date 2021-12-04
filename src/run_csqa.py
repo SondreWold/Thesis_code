@@ -10,7 +10,7 @@ import torch
 import logging
 import torch.nn as nn
 from torch.utils.data import TensorDataset, DataLoader, RandomSampler, SequentialSampler
-from transformers import (AdamW, get_linear_schedule_with_warmup, AutoModelForQuestionAnswering,
+from transformers import (AdamW, get_linear_schedule_with_warmup,
                           AutoConfig, AutoModelForMultipleChoice, AutoTokenizer)
 from datasets import load_dataset
 
@@ -57,7 +57,7 @@ def parse_args():
                         help="Total number of training epochs to perform.")
     parser.add_argument("--warmup_steps", default=10, type=int,
                         help="Linear warmup over warmup_steps.")
-    parser.add_argument('--logging_steps', type=int, default=1000,
+    parser.add_argument('--logging_steps', type=int, default=100,
                         help="Log every n updates steps.")
 
     parser.add_argument('--fp16', type=bool, default=True,
@@ -412,17 +412,14 @@ def train(args, model, tokenizer):
             model.zero_grad()
             num_steps += 1
 
-            if args.logging_steps > 0 and num_steps % args.logging_steps == 0:
-                results = evaluate(args, model, dataloader_val)
-                print("\n val acc: {}, val loss: {}"
-                      .format(str(results['val_acc']), str(results['val_loss'])))
-                if results["val_acc"] > best_val_acc:
-                    best_val_acc, best_val_loss = results["val_acc"], results["val_loss"]
-                    best_steps = num_steps
-                    best_model = deepcopy(model)
+        results = evaluate(args, model, dataloader_val)
+        logger.info("\n val acc: {}, val loss: {}"
+                    .format(str(results['val_acc']), str(results['val_loss'])))
+        if results["val_acc"] > best_val_acc:
+            best_val_acc, best_val_loss = results["val_acc"], results["val_loss"]
+            best_model = deepcopy(model)
 
     loss = tr_loss / num_steps
-
     return best_model
 
 
