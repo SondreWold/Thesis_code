@@ -414,8 +414,8 @@ def train(args, model, tokenizer):
 
         model.eval()
         results = evaluate(args, model, dataloader_val)
-        logger.info("\n Epoch {epoch_c} evaluation: val acc: {}, val loss: {}"
-                    .format(str(results['val_acc']), str(results['val_loss'])))
+        logger.info(
+            f"\n Epoch {epoch_c} evaluation: val acc:{results['val_acc']}, val loss: {results['val_loss']}")
         epoch_c += 1
 
     loss = tr_loss / num_steps
