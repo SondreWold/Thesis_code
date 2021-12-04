@@ -380,6 +380,7 @@ def train(args, model, tokenizer):
     tr_loss = 0.0
     best_val_acc, best_val_loss = 0.0, 99999999999.0
     best_model = None
+    epoch_c = 0
 
     model.zero_grad()
     train_iterator = trange(int(args.num_train_epochs),
@@ -387,11 +388,10 @@ def train(args, model, tokenizer):
 
     for _ in train_iterator:
 
+        model.train()
         epoch_iterator = tqdm(dataloader_tr, desc="Iteration",
                               disable=False, leave=True, position=1)
         for step, batch in enumerate(epoch_iterator):
-
-            model.train()
 
             batch = tuple(b.to(args.device) for b in batch)
             inputs = {'input_ids': batch[0],
@@ -412,12 +412,11 @@ def train(args, model, tokenizer):
             model.zero_grad()
             num_steps += 1
 
+        model.eval()
         results = evaluate(args, model, dataloader_val)
-        logger.info("\n val acc: {}, val loss: {}"
+        logger.info("\n Epoch {epoch_c} evaluation: val acc: {}, val loss: {}"
                     .format(str(results['val_acc']), str(results['val_loss'])))
-        if results["val_acc"] > best_val_acc:
-            best_val_acc, best_val_loss = results["val_acc"], results["val_loss"]
-            best_model = deepcopy(model)
+        epoch_c += 1
 
     loss = tr_loss / num_steps
     return best_model
@@ -431,8 +430,8 @@ def evaluate(args, model, dataloader):
 
     results = {}
 
+    model.eval()
     for batch in tqdm(dataloader, desc="Validation", disable=True, leave=True, position=1):
-        model.eval()
         batch = tuple(t.to(args.device) for t in batch)
 
         with torch.no_grad():
