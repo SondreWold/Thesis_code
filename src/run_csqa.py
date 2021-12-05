@@ -1,33 +1,93 @@
-# Inspired by: https://github.com/Mars-tin/commonsense-for-inference/
-import json
-import codecs
+#!/usr/bin/env python
+# coding=utf-8
+# Copyright The HuggingFace Team and The HuggingFace Inc. team. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+"""
+Fine-tuning a 🤗 Transformers model on multiple choice relying on the accelerate library without using a Trainer.
+"""
+# You can also adapt this script on your own multiple choice task. Pointers for this are left as comments.
+
 import argparse
-from copy import deepcopy
-from tqdm import tqdm, trange
-import random
-import numpy as np
-import torch
 import logging
-import torch.nn as nn
+import math
+import os
+import random
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Optional, Union
 from torch.utils.data import TensorDataset, DataLoader, RandomSampler, SequentialSampler
-from transformers import (AdamW, get_linear_schedule_with_warmup,
-                          AutoConfig, AutoModelForMultipleChoice, AutoTokenizer)
-from datasets import load_dataset
+import datasets
+import torch
+from datasets import load_dataset, load_metric
+from torch.utils.data import DataLoader
+from tqdm.auto import tqdm
+import numpy as np
+import transformers
+from accelerate import Accelerator
+from huggingface_hub import Repository
+from transformers import (
+    CONFIG_MAPPING,
+    MODEL_MAPPING,
+    AdamW,
+    AutoConfig,
+    AutoModelForMultipleChoice,
+    AutoTokenizer,
+    PreTrainedTokenizerBase,
+    SchedulerType,
+    default_data_collator,
+    get_scheduler,
+    set_seed,
+)
+from transformers.file_utils import PaddingStrategy, get_full_repo_name
+
 
 logger = logging.getLogger(__name__)
+# You should update this to your particular problem to have better documentation of `model_type`
+MODEL_CONFIG_CLASSES = list(MODEL_MAPPING.keys())
+MODEL_TYPES = tuple(conf.model_type for conf in MODEL_CONFIG_CLASSES)
 
 
 def parse_args():
-
     parser = argparse.ArgumentParser(
-        description="Common sense question answering")
-    parser.add_argument("--model_name_or_path", type=str, default=None,
-                        help="Model name from HF repo or local path")
-
-    parser.add_argument("--config_name", type=str,
-                        default=None,
-                        help="Pre-trained config name or path")
-
+        description="Finetune a transformers model on a text classification task")
+    parser.add_argument(
+        "--dataset_name",
+        type=str,
+        default=None,
+        help="The name of the dataset to use (via the datasets library).",
+    )
+    parser.add_argument(
+        "--dataset_config_name",
+        type=str,
+        default=None,
+        help="The configuration name of the dataset to use (via the datasets library).",
+    )
+    parser.add_argument(
+        "--train_file", type=str, default=None, help="A csv or a json file containing the training data."
+    )
+    parser.add_argument(
+        "--validation_file", type=str, default=None, help="A csv or a json file containing the validation data."
+    )
+    parser.add_argument(
+        "--max_seq_length",
+        type=int,
+        default=128,
+        help=(
+            "The maximum total input sequence length after tokenization. Sequences longer than this will be truncated,"
+            " sequences shorter will be padded if `--pad_to_max_lengh` is passed."
+        ),
+    )
     parser.add_argument(
         "--tune_both",
         type=bool,
@@ -35,71 +95,115 @@ def parse_args():
         help="Tune both adapter and normal weights",
     )
 
-    parser.add_argument("--tokenizer_name", default=None, type=str,
-                        help="Pre-trained tokenizer name or path if not the same as model_name")
-
-    parser.add_argument("--max_seq_length", default=128, type=int,
-                        help="The maximum total input sequence length after tokenization. "
-                        "Sequences longer than this will be truncated, sequences shorter will be padded.")
-    parser.add_argument("--batch_size", default=3, type=int,
-                        help="Batch size for training.")
-
-    parser.add_argument("--learning_rate", default="3e-5", type=float,
-                        help="The initial learning rate for Adam.")
-    parser.add_argument("--weight_decay", default=0.0, type=float,
-                        help="Weight decay if we apply some.")
-    parser.add_argument("--adam_epsilon", default=1e-6, type=float,
-                        help="Epsilon for Adam optimizer.")
-    parser.add_argument("--max_grad_norm", default=1.0, type=float,
-                        help="Max gradient norm.")
-
-    parser.add_argument("--num_train_epochs", default=1, type=int,
-                        help="Total number of training epochs to perform.")
-    parser.add_argument("--warmup_steps", default=10, type=int,
-                        help="Linear warmup over warmup_steps.")
-    parser.add_argument('--logging_steps', type=int, default=100,
-                        help="Log every n updates steps.")
-
-    parser.add_argument('--fp16', type=bool, default=True,
-                        help="Whether to use 16-bit (mixed) precision (through NVIDIA apex) instead of 32-bit")
-    parser.add_argument('--opt_level', type=str, default='O1',
-                        help="For fp16: Apex AMP optimization level selected in ['O0', 'O1', 'O2', and 'O3']."
-                             "See details at https://nvidia.github.io/apex/amp.html")
-
-    parser.add_argument("--seed", type=int, default=42,
-                        help="Random seed: <int>")
     parser.add_argument(
-        "--device", default=torch.device("cuda" if torch.cuda.is_available() else "cpu"))
+        "--do_predict",
+        type=bool,
+        default=False,
+        help="Do predict on final test set",
+    )
+
+    parser.add_argument(
+        "--pad_to_max_length",
+        action="store_true",
+        help="If passed, pad all samples to `max_length`. Otherwise, dynamic padding is used.",
+    )
+    parser.add_argument(
+        "--model_name_or_path",
+        type=str,
+        help="Path to pretrained model or model identifier from huggingface.co/models.",
+        required=True,
+    )
+    parser.add_argument(
+        "--config_name",
+        type=str,
+        default=None,
+        help="Pretrained config name or path if not the same as model_name",
+    )
+    parser.add_argument(
+        "--tokenizer_name",
+        type=str,
+        default=None,
+        help="Pretrained tokenizer name or path if not the same as model_name",
+    )
+    parser.add_argument(
+        "--use_slow_tokenizer",
+        action="store_true",
+        help="If passed, will use a slow tokenizer (not backed by the 🤗 Tokenizers library).",
+    )
+    parser.add_argument(
+        "--batch_size",
+        type=int,
+        default=8,
+        help="Batch size (per device) for the training dataloader.",
+    )
+    parser.add_argument(
+        "--per_device_eval_batch_size",
+        type=int,
+        default=8,
+        help="Batch size (per device) for the evaluation dataloader.",
+    )
+    parser.add_argument(
+        "--learning_rate",
+        type=float,
+        default=5e-5,
+        help="Initial learning rate (after the potential warmup period) to use.",
+    )
+    parser.add_argument("--weight_decay", type=float,
+                        default=0.0, help="Weight decay to use.")
+    parser.add_argument("--num_train_epochs", type=int, default=3,
+                        help="Total number of training epochs to perform.")
+    parser.add_argument(
+        "--max_train_steps",
+        type=int,
+        default=None,
+        help="Total number of training steps to perform. If provided, overrides num_train_epochs.",
+    )
+    parser.add_argument(
+        "--gradient_accumulation_steps",
+        type=int,
+        default=1,
+        help="Number of updates steps to accumulate before performing a backward/update pass.",
+    )
+    parser.add_argument(
+        "--lr_scheduler_type",
+        type=SchedulerType,
+        default="linear",
+        help="The scheduler type to use.",
+        choices=["linear", "cosine", "cosine_with_restarts",
+                 "polynomial", "constant", "constant_with_warmup"],
+    )
+    parser.add_argument(
+        "--num_warmup_steps", type=int, default=0, help="Number of steps for the warmup in the lr scheduler."
+    )
+    parser.add_argument("--output_dir", type=str, default=None,
+                        help="Where to store the final model.")
+    parser.add_argument("--seed", type=int, default=None,
+                        help="A seed for reproducible training.")
+    parser.add_argument(
+        "--model_type",
+        type=str,
+        default=None,
+        help="Model type to use if training from scratch.",
+        choices=MODEL_TYPES,
+    )
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Activate debug mode and run training only with a subset of data.",
+    )
+    parser.add_argument("--push_to_hub", action="store_true",
+                        help="Whether or not to push the model to the Hub.")
+    parser.add_argument(
+        "--hub_model_id", type=str, help="The name of the repository to keep in sync with the local `output_dir`."
+    )
+    parser.add_argument("--hub_token", type=str,
+                        help="The token to use to push to the Model Hub.")
     args = parser.parse_args()
+
+    if args.push_to_hub:
+        assert args.output_dir is not None, "Need an `output_dir` to create a repo when `--push_to_hub` is passed."
+
     return args
-
-
-def set_seed(seed):
-    torch.manual_seed(seed)
-    np.random.seed(seed)
-    random.seed(seed)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed_all(seed)
-
-
-def load_optimizer(args, model, train_size):
-    num_training_steps = train_size // args.num_train_epochs
-    no_decay = ['bias', 'LayerNorm.weight']
-    optimizer_grouped_parameters = [
-        {'params': [p for n, p in model.named_parameters()
-                    if not any(nd in n for nd in no_decay)],
-         'weight_decay': args.weight_decay},
-        {'params': [p for n, p in model.named_parameters()
-                    if any(nd in n for nd in no_decay)],
-         'weight_decay': 0.0}
-    ]
-
-    optimizer = AdamW(
-        optimizer_grouped_parameters, lr=args.learning_rate)
-    scheduler = get_linear_schedule_with_warmup(
-        optimizer, num_warmup_steps=args.warmup_steps, num_training_steps=num_training_steps)
-
-    return model, optimizer, scheduler
 
 
 def load_data():
@@ -358,145 +462,78 @@ def load_features(args, tokenizer, mode='train'):
     return dataset
 
 
-def train(args, model, tokenizer):
-
-    print('\n Loading training dataset')
-    dataset_tr = load_features(args, tokenizer, mode='train')
-    sampler_tr = RandomSampler(dataset_tr)
-    dataloader_tr = DataLoader(
-        dataset_tr, sampler=sampler_tr, batch_size=args.batch_size)
-
-    print('\n Loading validation dataset')
-    dataset_val = load_features(args, tokenizer, 'validation')
-    sampler_val = SequentialSampler(dataset_val)
-    dataloader_val = DataLoader(
-        dataset_val, sampler=sampler_val, batch_size=args.batch_size)
-
-    model, optimizer, scheduler = load_optimizer(
-        args, model, len(dataloader_tr))
-
-    num_steps = 0
-    best_steps = 0
-    tr_loss = 0.0
-    best_val_acc, best_val_loss = 0.0, 99999999999.0
-    best_model = None
-    epoch_c = 0
-
-    train_iterator = trange(int(args.num_train_epochs),
-                            desc="Epoch", disable=False, leave=True, position=1)
-
-    for _ in train_iterator:
-
-        epoch_iterator = tqdm(dataloader_tr, desc="Iteration",
-                              disable=False, leave=True, position=1)
-        for step, batch in enumerate(epoch_iterator):
-            model.train()
-            model.zero_grad()
-
-            batch = tuple(b.to(args.device) for b in batch)
-            inputs = {'input_ids': batch[0],
-                      'attention_mask': batch[1],
-                      'token_type_ids': batch[2],
-                      'labels': batch[3]}
-            outputs = model(**inputs)
-            loss = outputs[0]
-
-            loss.backward()
-
-            tr_loss += loss.item()
-
-            optimizer.step()
-            scheduler.step()
-
-            num_steps += 1
-
-        results = evaluate(args, model, dataloader_val)
-        logger.info(
-            f"\n Epoch {epoch_c} evaluation: val acc:{results['val_acc']}, val loss: {results['val_loss']}")
-        epoch_c += 1
-
-    loss = tr_loss / num_steps
-    return model
-
-
-def evaluate(args, model, dataloader):
-
-    val_loss = 0.0
-    num_steps = 0
-    preds, labels = None, None
-
-    results = {}
-
-    for batch in tqdm(dataloader, desc="Validation", disable=True, leave=True, position=1):
-        batch = tuple(t.to(args.device) for t in batch)
-        model.eval()
-
-        with torch.no_grad():
-            inputs = {'input_ids': batch[0],
-                      'attention_mask': batch[1],
-                      'token_type_ids': batch[2],
-                      'labels': batch[3]}
-            outputs = model(**inputs)
-            loss, logits = outputs[:2]
-
-            val_loss += loss.mean().item()
-
-        num_steps += 1
-
-        if preds is None:
-            preds = logits.detach().cpu().numpy()
-            labels = inputs['labels'].detach().cpu().numpy()
-        else:
-            preds = np.append(preds, logits.detach().cpu().numpy(), axis=0)
-            labels = np.append(
-                labels, inputs['labels'].detach().cpu().numpy(), axis=0)
-
-    loss = val_loss / num_steps
-    preds = np.argmax(preds, axis=1)
-    acc = (preds == labels).mean()
-    result = {"val_acc": acc, "val_loss": loss}
-    results.update(result)
-    logger.info("Updated results")
-
-    return results
-
-
-def test(args, tokenizer, model):
-
-    dataset = load_features(args, tokenizer, mode='validation')
-    sampler = SequentialSampler(dataset)
-    dataloader_test = DataLoader(
-        dataset, sampler=sampler, batch_size=args.batch_size)
-
-    results = evaluate(args, model, dataloader_test)
-    logger.info('\nTesting...')
-    logger.info("\n final validation acc: {}, final validation loss: {}"
-                .format(str(results['val_acc']), str(results['val_loss'])))
-
-
 def main():
+    args = parse_args()
+    device = "cpu"
+
+    # Initialize the accelerator. We will let the accelerator handle device placement for us in this example.
+    accelerator = Accelerator()
+    # Make one log on every process with the configuration for debugging.
     logging.basicConfig(
         format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
         datefmt="%m/%d/%Y %H:%M:%S",
         level=logging.INFO,
     )
-    logger.setLevel(logging.INFO)
-    args = parse_args()
-    logger.info(f'Using device: {args.device}')
-    set_seed(args.seed)
+    logger.info(accelerator.state)
 
-    processor = CommonsenseQAProcessor()
-    num_labels = len(processor.labels)
+    # Setup logging, we only want one process per machine to log things on the screen.
+    # accelerator.is_local_main_process is only True for one process per machine.
+    logger.setLevel(
+        logging.INFO if accelerator.is_local_main_process else logging.ERROR)
+    if accelerator.is_local_main_process:
+        datasets.utils.logging.set_verbosity_warning()
+        transformers.utils.logging.set_verbosity_info()
+    else:
+        datasets.utils.logging.set_verbosity_error()
+        transformers.utils.logging.set_verbosity_error()
 
-    config = AutoConfig.from_pretrained(
-        args.model_name_or_path, num_labels=num_labels)
-    tokenizer = AutoTokenizer.from_pretrained(
-        args.tokenizer_name if args.tokenizer_name else args.model_name_or_path,
-        do_lower_case=True)
+    # If passed along, set the training seed now.
+    if args.seed is not None:
+        set_seed(args.seed)
 
-    model = AutoModelForMultipleChoice.from_pretrained(
-        args.model_name_or_path, from_tf=bool('.ckpt' in args.model_name_or_path), config=config)
-    model.to(args.device)
+    # Handle the repository creation
+    if accelerator.is_main_process:
+        if args.push_to_hub:
+            if args.hub_model_id is None:
+                repo_name = get_full_repo_name(
+                    Path(args.output_dir).name, token=args.hub_token)
+            else:
+                repo_name = args.hub_model_id
+            repo = Repository(args.output_dir, clone_from=repo_name)
+        elif args.output_dir is not None:
+            os.makedirs(args.output_dir, exist_ok=True)
+    accelerator.wait_for_everyone()
+
+    if args.config_name:
+        config = AutoConfig.from_pretrained(args.model_name_or_path)
+    elif args.model_name_or_path:
+        config = AutoConfig.from_pretrained(args.model_name_or_path)
+    else:
+        config = CONFIG_MAPPING[args.model_type]()
+        logger.warning(
+            "You are instantiating a new config instance from scratch.")
+
+    if args.tokenizer_name:
+        tokenizer = AutoTokenizer.from_pretrained(
+            args.tokenizer_name, use_fast=not args.use_slow_tokenizer)
+    elif args.model_name_or_path:
+        tokenizer = AutoTokenizer.from_pretrained(
+            args.model_name_or_path, use_fast=not args.use_slow_tokenizer)
+    else:
+        raise ValueError(
+            "You are instantiating a new tokenizer from scratch. This is not supported by this script."
+            "You can do it from another script, save it, and load it from here, using --tokenizer_name."
+        )
+
+    if args.model_name_or_path:
+        model = AutoModelForMultipleChoice.from_pretrained(
+            args.model_name_or_path,
+            from_tf=bool(".ckpt" in args.model_name_or_path),
+            config=config,
+        )
+    else:
+        logger.info("Training new model from scratch")
+        model = AutoModelForMultipleChoice.from_config(config)
 
     if args.tune_both:
         logger.info("Setting: tuning both activated")
@@ -507,8 +544,167 @@ def main():
             model.set_active_adapters(["mlm"])
             model.freeze_model(False)  # keep normal weights dynamic
 
-    trained_model = train(args, model, tokenizer)
-    test(args, tokenizer, trained_model)
+    model.resize_token_embeddings(len(tokenizer))
+
+    print('\n Loading training dataset')
+    dataset_tr = load_features(args, tokenizer, mode='train')
+    sampler_tr = RandomSampler(dataset_tr)
+    train_dataloader = DataLoader(
+        dataset_tr, sampler=sampler_tr, batch_size=args.batch_size)
+
+    print('\n Loading validation dataset')
+    dataset_val = load_features(args, tokenizer, 'validation')
+    sampler_val = SequentialSampler(dataset_val)
+    eval_dataloader = DataLoader(
+        dataset_val, sampler=sampler_val, batch_size=args.batch_size)
+
+    # Optimizer
+    # Split weights in two groups, one with weight decay and the other not.
+    no_decay = ["bias", "LayerNorm.weight"]
+    optimizer_grouped_parameters = [
+        {
+            "params": [p for n, p in model.named_parameters() if not any(nd in n for nd in no_decay)],
+            "weight_decay": args.weight_decay,
+        },
+        {
+            "params": [p for n, p in model.named_parameters() if any(nd in n for nd in no_decay)],
+            "weight_decay": 0.0,
+        },
+    ]
+    optimizer = AdamW(optimizer_grouped_parameters, lr=args.learning_rate)
+
+    # Use the device given by the `accelerator` object.
+    device = accelerator.device
+    model.to(device)
+
+    # Prepare everything with our `accelerator`.
+    model, optimizer, train_dataloader, eval_dataloader = accelerator.prepare(
+        model, optimizer, train_dataloader, eval_dataloader
+    )
+
+    # Note -> the training dataloader needs to be prepared before we grab his length below (cause its length will be
+    # shorter in multiprocess)
+
+    # Scheduler and math around the number of training steps.
+    num_update_steps_per_epoch = math.ceil(
+        len(train_dataloader) / args.gradient_accumulation_steps)
+    if args.max_train_steps is None:
+        args.max_train_steps = args.num_train_epochs * num_update_steps_per_epoch
+    else:
+        args.num_train_epochs = math.ceil(
+            args.max_train_steps / num_update_steps_per_epoch)
+
+    lr_scheduler = get_scheduler(
+        name=args.lr_scheduler_type,
+        optimizer=optimizer,
+        num_warmup_steps=args.num_warmup_steps,
+        num_training_steps=args.max_train_steps,
+    )
+
+    # Metrics
+    metric = load_metric("accuracy")
+
+    # Train!
+    total_batch_size = args.batch_size * \
+        accelerator.num_processes * args.gradient_accumulation_steps
+
+    logger.info("***** Running training *****")
+    logger.info(f"  Num examples = {len(dataset_tr)}")
+    logger.info(f"  Num Epochs = {args.num_train_epochs}")
+    logger.info(
+        f"  Instantaneous batch size per device = {args.batch_size}")
+    logger.info(
+        f"  Total train batch size (w. parallel, distributed & accumulation) = {total_batch_size}")
+    logger.info(
+        f"  Gradient Accumulation steps = {args.gradient_accumulation_steps}")
+    logger.info(f"  Total optimization steps = {args.max_train_steps}")
+    # Only show the progress bar once on each machine.
+    progress_bar = tqdm(range(args.max_train_steps),
+                        disable=not accelerator.is_local_main_process)
+    completed_steps = 0
+
+    for epoch in range(args.num_train_epochs):
+        model.train()
+        for step, batch in enumerate(train_dataloader):
+            inputs = {'input_ids': batch[0],
+                      'attention_mask': batch[1],
+                      'token_type_ids': batch[2],
+                      'labels': batch[3]}
+            outputs = model(**inputs)
+            loss = outputs.loss
+            loss = loss / args.gradient_accumulation_steps
+            accelerator.backward(loss)
+            if step % args.gradient_accumulation_steps == 0 or step == len(train_dataloader) - 1:
+                optimizer.step()
+                lr_scheduler.step()
+                optimizer.zero_grad()
+                progress_bar.update(1)
+                completed_steps += 1
+
+            if completed_steps >= args.max_train_steps:
+                break
+
+        model.eval()
+        for step, batch in enumerate(eval_dataloader):
+            with torch.no_grad():
+                inputs = {'input_ids': batch[0],
+                          'attention_mask': batch[1],
+                          'token_type_ids': batch[2],
+                          'labels': batch[3]}
+                outputs = model(**inputs)
+            predictions = outputs.logits.argmax(dim=-1)
+            metric.add_batch(
+                predictions=accelerator.gather(predictions),
+                references=accelerator.gather(inputs["labels"]),
+            )
+
+        eval_metric = metric.compute()
+        accelerator.print(f"epoch {epoch}: {eval_metric}")
+
+        if args.push_to_hub and epoch < args.num_train_epochs - 1:
+            accelerator.wait_for_everyone()
+            unwrapped_model = accelerator.unwrap_model(model)
+            unwrapped_model.save_pretrained(
+                args.output_dir, save_function=accelerator.save)
+            if accelerator.is_main_process:
+                tokenizer.save_pretrained(args.output_dir)
+                repo.push_to_hub(
+                    commit_message=f"Training in progress epoch {epoch}", blocking=False)
+
+    if args.do_predict:
+        logger.info("Doing predict on test set...")
+        logger.info('\n Loading test dataset')
+        dataset_test = load_features(args, tokenizer, mode='test')
+        sampler_test = RandomSampler(dataset_tr)
+        test_dataloader = DataLoader(
+            dataset_test, sampler=sampler_test, batch_size=args.batch_size)
+
+        test_metric = load_metric("accuracy")
+        model.eval()
+        for step, batch in enumerate(test_dataloader):
+            with torch.no_grad():
+                inputs = {'input_ids': batch[0],
+                          'attention_mask': batch[1],
+                          'token_type_ids': batch[2],
+                          'labels': batch[3]}
+                outputs = model(**inputs)
+            predictions = outputs.logits.argmax(dim=-1)
+            test_metric.add_batch(
+                predictions=accelerator.gather(predictions),
+                references=accelerator.gather(inputs["labels"]),
+            )
+        test_metric_result = test_metric.compute()
+        accelerator.print(f"Test results: {test_metric_result}")
+
+    if args.output_dir is not None:
+        accelerator.wait_for_everyone()
+        unwrapped_model = accelerator.unwrap_model(model)
+        unwrapped_model.save_pretrained(
+            args.output_dir, save_function=accelerator.save)
+        if accelerator.is_main_process:
+            tokenizer.save_pretrained(args.output_dir)
+            if args.push_to_hub:
+                repo.push_to_hub(commit_message="End of training")
 
 
 if __name__ == "__main__":
