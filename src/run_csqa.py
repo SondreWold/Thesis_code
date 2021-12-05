@@ -659,7 +659,7 @@ def main():
             )
 
         eval_metric = metric.compute()
-        accelerator.print(f"epoch {epoch}: {eval_metric}")
+        logger.info(f"epoch {epoch}: {eval_metric}")
 
         if args.push_to_hub and epoch < args.num_train_epochs - 1:
             accelerator.wait_for_everyone()
@@ -675,7 +675,7 @@ def main():
         logger.info("Doing predict on test set...")
         logger.info('\n Loading test dataset')
         dataset_test = load_features(args, tokenizer, mode='test')
-        sampler_test = RandomSampler(dataset_tr)
+        sampler_test = RandomSampler(dataset_test)
         test_dataloader = DataLoader(
             dataset_test, sampler=sampler_test, batch_size=args.batch_size)
 
@@ -694,7 +694,7 @@ def main():
                 references=accelerator.gather(inputs["labels"]),
             )
         test_metric_result = test_metric.compute()
-        accelerator.print(f"Test results: {test_metric_result}")
+        logger.info(f"Test results: {test_metric_result}")
 
     if args.output_dir is not None:
         accelerator.wait_for_everyone()
