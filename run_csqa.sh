@@ -2,7 +2,7 @@ MODEL="./models/mlm_100k_cased" #No trailing / !!
 TOKENIZER="bert-base-cased"
 DATASET_NAME=commonsense_qa
 
-python src/run_csqa2.py \
+python src/run_csqa.py \
   --model_name_or_path $MODEL \
   --tokenizer_name $TOKENIZER \
   --max_seq_length 128 \
