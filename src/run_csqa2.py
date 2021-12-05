@@ -94,6 +94,14 @@ def parse_args():
         default=False,
         help="Tune both adapter and normal weights",
     )
+
+    parser.add_argument(
+        "--do_predict",
+        type=bool,
+        default=False,
+        help="Do predict on final test set",
+    )
+
     parser.add_argument(
         "--pad_to_max_length",
         action="store_true",
@@ -662,6 +670,31 @@ def main():
                 tokenizer.save_pretrained(args.output_dir)
                 repo.push_to_hub(
                     commit_message=f"Training in progress epoch {epoch}", blocking=False)
+
+    if args.do_predict:
+        logger.info("Doing predict on test set...")
+        logger.info('\n Loading test dataset')
+        dataset_test = load_features(args, tokenizer, mode='test')
+        sampler_test = RandomSampler(dataset_tr)
+        test_dataloader = DataLoader(
+            dataset_test, sampler=sampler_test, batch_size=args.batch_size)
+
+        test_metric = load_metric("accuracy")
+        model.eval()
+        for step, batch in enumerate(test_dataloader):
+            with torch.no_grad():
+                inputs = {'input_ids': batch[0],
+                          'attention_mask': batch[1],
+                          'token_type_ids': batch[2],
+                          'labels': batch[3]}
+                outputs = model(**inputs)
+            predictions = outputs.logits.argmax(dim=-1)
+            test_metric.add_batch(
+                predictions=accelerator.gather(predictions),
+                references=accelerator.gather(inputs["labels"]),
+            )
+        test_metric_result = test_metric.compute()
+        accelerator.print(f"Test results: {test_metric_result}")
 
     if args.output_dir is not None:
         accelerator.wait_for_everyone()
