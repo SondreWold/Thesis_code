@@ -1,5 +1,5 @@
-MODEL="./models/mlm_100k_cased" #No trailing / !!
-TOKENIZER="bert-base-cased"
+MODEL="bert-base-uncased" #No trailing / !!
+TOKENIZER="bert-base-uncased"
 DATASET_NAME=commonsense_qa
 
 python src/run_csqa.py \
@@ -7,6 +7,5 @@ python src/run_csqa.py \
   --tokenizer_name $TOKENIZER \
   --max_seq_length 128 \
   --batch_size 32 \
-  --learning_rate 1e-5 \
+  --learning_rate 3e-5 \
   --num_train_epochs 3 \
-  --tune_both True \

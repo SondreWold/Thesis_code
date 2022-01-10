@@ -540,9 +540,9 @@ def main():
         if "mlm" in model.config.adapters:
             logger.info("Found mlm model in adapter config")
             logger.info(f"{model.config.adapters}")
-            model.train_adapter(["mlm"])  # activate adapter
+            #model.train_adapter(["mlm"])  # activate adapter
             model.set_active_adapters(["mlm"])
-            model.freeze_model(False)  # keep normal weights dynamic
+            model.freeze_model(False)  # False if we want to keep normal weights dynamic
 
     model.resize_token_embeddings(len(tokenizer))
 
