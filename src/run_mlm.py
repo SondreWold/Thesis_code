@@ -164,7 +164,7 @@ def parse_args():
     parser.add_argument(
         "--max_seq_length",
         type=int,
-        default=None,
+        default=24,
         help="The maximum total input sequence length after tokenization. Sequences longer than this will be truncated.",
     )
     parser.add_argument(
@@ -183,7 +183,7 @@ def parse_args():
         "--overwrite_cache", type=bool, default=False, help="Overwrite the cached training and evaluation sets"
     )
     parser.add_argument(
-        "--mlm_probability", type=float, default=0.15, help="Ratio of tokens to mask for masked language modeling loss"
+        "--mlm_probability", type=float, default=0.25, help="Ratio of tokens to mask for masked language modeling loss"
     )
 
     parser.add_argument(
@@ -198,6 +198,13 @@ def parse_args():
         type=str,
         default="houlsby",
         help="The adapter architecture config.",
+    )
+
+    parser.add_argument(
+        "--tune_all_parameters",
+        type=bool,
+        default="False",
+        help="Keep the original transformer parameters open. Tune everything, included the adapter, on the mlm objective.",
     )
 
     args = parser.parse_args()
@@ -346,6 +353,9 @@ def main():
     # Freeze all transformer weights except of those of the added adapter
     model.train_adapter([task_name])
     model.set_active_adapters(task_name)
+
+    if args.tune_all_parameters:
+        model.freeze_model(False)  # keep original transformer weights dynamic
 
     # Preprocessing the datasets.
     # First we tokenize all the texts.
@@ -521,6 +531,7 @@ def main():
     for epoch in range(args.num_train_epochs):
         model.train()
         for step, batch in enumerate(train_dataloader):
+            # logger.info(tokenizer.batch_decode(sequences=batch["input_ids"]))
             outputs = model(**batch)
             loss = outputs.loss
             loss = loss / args.gradient_accumulation_steps

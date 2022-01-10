@@ -14,4 +14,3 @@ python $TRAINING_FOLDER/run_mlm.py \
     --adapter_name "mlm_houlsby" \
     --adapter_config "houlsby" \
     --max_train_steps 10 \
-    --output_dir /tmp/test-mlm
