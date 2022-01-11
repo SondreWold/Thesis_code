@@ -547,6 +547,7 @@ def main():
     else:
         logger.info("Training new model from scratch")
         model = AutoModelForMultipleChoice.from_config(config)
+        logger.info(model.heads)
 
     if args.adapter_path:
         logging.info(f"Loading adapter from path {args.adapter_path}")
@@ -557,8 +558,13 @@ def main():
         if args.adapter_name in model.config.adapters:
             logger.info(
                 f"Found adapter module with name {args.adapter_name} in config")
+
             model.set_active_adapters([args.adapter_name])
             model.freeze_model(False)
+            logger.info(model.heads)
+
+            model.delete_head(args.adapter_name)
+            logger.info(model.heads)
 
     model.resize_token_embeddings(len(tokenizer))
 
