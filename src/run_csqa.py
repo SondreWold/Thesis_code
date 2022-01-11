@@ -544,10 +544,11 @@ def main():
             from_tf=bool(".ckpt" in args.model_name_or_path),
             config=config,
         )
+        logger.info("PRE")
+        logger.info(model.classifier)
     else:
         logger.info("Training new model from scratch")
         model = AutoModelForMultipleChoice.from_config(config)
-        logger.info(model.heads)
 
     if args.adapter_path:
         logging.info(f"Loading adapter from path {args.adapter_path}")
@@ -561,10 +562,13 @@ def main():
 
             model.set_active_adapters([args.adapter_name])
             model.freeze_model(False)
-            logger.info(model.heads)
+            logger.info("ADAPTER ACTIVATED")
+
+            logger.info(model)
 
             model.delete_head(args.adapter_name)
-            logger.info(model.heads)
+            logger.info("Deleted head")
+            logger.info(model)
 
     model.resize_token_embeddings(len(tokenizer))
 
