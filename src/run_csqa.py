@@ -89,6 +89,19 @@ def parse_args():
         ),
     )
     parser.add_argument(
+        "--adapter_name",
+        type=str,
+        default=None,
+        help="Name of adapter module to activate",
+    )
+    parser.add_argument(
+        "--adapter_path",
+        type=str,
+        default=None,
+        help="Name of adapter module to activate",
+    )
+
+    parser.add_argument(
         "--tune_both",
         type=bool,
         default=False,
@@ -177,7 +190,7 @@ def parse_args():
     )
     parser.add_argument("--output_dir", type=str, default=None,
                         help="Where to store the final model.")
-    parser.add_argument("--seed", type=int, default=None,
+    parser.add_argument("--seed", type=int, default=42,
                         help="A seed for reproducible training.")
     parser.add_argument(
         "--model_type",
@@ -535,14 +548,18 @@ def main():
         logger.info("Training new model from scratch")
         model = AutoModelForMultipleChoice.from_config(config)
 
+    if args.adapter_path:
+        logging.info(f"Loading adapter from path {args.adapter_path}")
+        model.load_adapter(args.adapter_path)
+
     if args.tune_both:
         logger.info("Setting: tuning both activated")
-        if "mlm" in model.config.adapters:
-            logger.info("Found mlm model in adapter config")
-            logger.info(f"{model.config.adapters}")
-            #model.train_adapter(["mlm"])  # activate adapter
-            model.set_active_adapters(["mlm"])
-            model.freeze_model(False)  # False if we want to keep normal weights dynamic
+        if args.adapter_name in model.config.adapters:
+            logger.info(
+                f"Found adapter module with name {args.adapter_name} in config")
+            model.train_adapter([args.adapter_name])  # activate adapter
+            model.set_active_adapters([args.adapter_name])
+            model.freeze_model(False)
 
     model.resize_token_embeddings(len(tokenizer))
 
