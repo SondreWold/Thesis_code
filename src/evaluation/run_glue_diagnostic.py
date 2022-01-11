@@ -99,8 +99,14 @@ def main():
         config=config,
     )
 
-    model.train_adapter(["mlm"])  # activate adapter
-    model.set_active_adapters(["mlm"])
+    if args.adapter_name in model.config.adapters:
+        logger.info(
+            f"Found adapter with name {args.adpater_name} in adapter config list.")
+        model.train_adapter([args.adapter_name])  # activate adapter
+        model.set_active_adapters([args.adapter_name])
+    else:
+        logger.info(
+            f"Did not find provided adapter {args.adapter_name}. Available adapters are: {model.config.adapters}")
 
     sentence1_key = "premise"
     sentence2_key = "hypothesis"
