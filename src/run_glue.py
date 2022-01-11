@@ -293,6 +293,9 @@ def main():
             model.train_adapter([args.adapter_name])  # activate adapter
             model.set_active_adapters([args.adapter_name])
             model.freeze_model(False)  # keep normal weights dynamic
+        else:
+            logger.info("Model name not found in adapter configuration...")
+            exit()
 
     # Preprocessing the datasets
     if args.task_name is not None:
