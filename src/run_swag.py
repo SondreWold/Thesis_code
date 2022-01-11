@@ -393,7 +393,6 @@ def main():
         if args.adapter_name in model.config.adapters:
             logger.info(
                 f"Found adapter module with name {args.adapter_name} in config")
-            model.train_adapter([args.adapter_name])  # activate adapter
             model.set_active_adapters([args.adapter_name])
             model.freeze_model(False)
 
