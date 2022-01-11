@@ -10,6 +10,7 @@ from tqdm.auto import tqdm
 
 from transformers import (
     AdapterTrainer,
+    Trainer,
     AutoConfig,
     EvalPrediction,
     AutoModelForSequenceClassification,
@@ -58,6 +59,13 @@ def parse_args():
         help="Pretrained tokenizer name or path if not the same as model_name",
     )
 
+    parser.add_argument(
+        "--use_adapter",
+        type=bool,
+        default=False,
+        help="Whether or not to use the adapter module in the forward pass",
+    )
+
     parser.add_argument("--output_dir", type=str, default=None,
                         help="Where to store the final model.")
     parser.add_argument("--seed", type=int, default=42,
@@ -99,14 +107,15 @@ def main():
         config=config,
     )
 
-    if args.adapter_name in model.config.adapters:
-        logger.info(
-            f"Found adapter with name {args.adpater_name} in adapter config list.")
-        model.train_adapter([args.adapter_name])  # activate adapter
-        model.set_active_adapters([args.adapter_name])
-    else:
-        logger.info(
-            f"Did not find provided adapter {args.adapter_name}. Available adapters are: {model.config.adapters}")
+    if args.use_adapter:
+        if args.adapter_name in model.config.adapters:
+            logger.info(
+                f"Found adapter with name {args.adpater_name} in adapter config list.")
+            model.train_adapter([args.adapter_name])  # activate adapter
+            model.set_active_adapters([args.adapter_name])
+        else:
+            logger.info(
+                f"Did not find provided adapter {args.adapter_name}. Available adapters are: {model.config.adapters}")
 
     sentence1_key = "premise"
     sentence2_key = "hypothesis"
@@ -156,7 +165,7 @@ def main():
 
     logger.info("*** Predict ***")
 
-    trainer_class = AdapterTrainer
+    trainer_class = AdapterTrainer if args.use_adapter else Trainer
     trainer = trainer_class(
         model=model,
         train_dataset=None,
