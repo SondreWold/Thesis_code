@@ -110,7 +110,7 @@ def main():
     if args.use_adapter:
         if args.adapter_name in model.config.adapters:
             logger.info(
-                f"Found adapter with name {args.adpater_name} in adapter config list.")
+                f"Found adapter with name {args.adapter_name} in adapter config list.")
             model.train_adapter([args.adapter_name])  # activate adapter
             model.set_active_adapters([args.adapter_name])
         else:

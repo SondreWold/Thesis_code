@@ -1,9 +1,10 @@
-MODEL="./models/mlm_100k_cased" #No trailing / !!
-TOKENIZER="bert-base-cased"
-ADAPTER_NAME=""
-OUTPUT_DIR=""
+MODEL="./models/mnli" #No trailing / !!
+TOKENIZER="bert-base-uncased"
+ADAPTER_NAME="mlm_houlsby"
+OUTPUT_DIR="./models/mnli"
 python -u ./src/evaluation/run_glue_diagnostic.py \
   --model_name_or_path $MODEL \
-  --adapter_name $ADAPTER_NAME
+  --adapter_name $ADAPTER_NAME \
   --tokenizer_name $TOKENIZER \
-  --output_dir $OUTPUT_DIR/ 
+  --output_dir $OUTPUT_DIR \
+  --use_adapter True \
