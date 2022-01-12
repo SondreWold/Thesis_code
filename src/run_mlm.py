@@ -108,7 +108,7 @@ def parse_args():
     parser.add_argument(
         "--per_device_train_batch_size",
         type=int,
-        default=8,
+        default=32,
         help="Batch size (per device) for the training dataloader.",
     )
     parser.add_argument(
@@ -124,7 +124,7 @@ def parse_args():
         help="Initial learning rate (after the potential warmup period) to use.",
     )
     parser.add_argument("--weight_decay", type=float,
-                        default=0.0, help="Weight decay to use.")
+                        default=0.01, help="Weight decay to use.")
     parser.add_argument("--num_train_epochs", type=int, default=3,
                         help="Total number of training epochs to perform.")
     parser.add_argument(
@@ -164,13 +164,13 @@ def parse_args():
     parser.add_argument(
         "--max_seq_length",
         type=int,
-        default=24,
+        default=128,
         help="The maximum total input sequence length after tokenization. Sequences longer than this will be truncated.",
     )
     parser.add_argument(
         "--line_by_line",
         type=bool,
-        default=False,
+        default=True,
         help="Whether distinct lines of text in the dataset are to be handled as distinct sequences.",
     )
     parser.add_argument(
@@ -198,6 +198,19 @@ def parse_args():
         type=str,
         default="houlsby",
         help="The adapter architecture config.",
+    )
+
+    parser.add_argument(
+        "--non_linearity",
+        type=str,
+        default="swish",
+        help="The non lineary activation function to use in the adapter module.",
+    )
+    parser.add_argument(
+        "--reduction_factor",
+        type=int,
+        default=16,
+        help="The reduction of parameters in the adapter module compared to a normal encoder layer.",
     )
 
     parser.add_argument(
@@ -343,7 +356,7 @@ def main():
         logger.info(
             f"Initializing adapter with architecture: {args.adapter_config}")
         adapter_config = AdapterConfig.load(
-            args.adapter_config,
+            args.adapter_config, non_linearity=args.non_linearity, reduction_factor=args.reduction_factor
         )
         model.add_adapter(task_name, config=adapter_config)
     else:
