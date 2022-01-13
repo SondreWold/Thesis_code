@@ -5,5 +5,5 @@ python src/run_ner.py \
   --output_dir /tmp/test-ner \
   --do_train \
   --tune_both True \
-  --adapter_name mlm_houlsby
+  --adapter_name mlm_houlsby \
   --do_eval

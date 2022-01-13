@@ -49,13 +49,6 @@ from transformers.trainer_utils import get_last_checkpoint
 from transformers.utils import check_min_version
 from transformers.utils.versions import require_version
 
-
-# Will error if the minimal version of Transformers is not installed. Remove at your own risks.
-check_min_version("4.12.0")
-
-require_version("datasets>=1.8.0",
-                "To fix: pip install -r examples/pytorch/token-classification/requirements.txt")
-
 logger = logging.getLogger(__name__)
 
 
@@ -383,14 +376,13 @@ def main():
     )
 
     # Setup adapters
-    if args.tune_both:
+    if data_args.tune_both:
         logger.info("Setting: tuning both activated")
-        if args.adapter_name in model.config.adapters:
+        if data_args.adapter_name in model.config.adapters:
             logger.info(
-                f"Found adapter module with name {args.adapter_name} in config")
-            model.set_active_adapters([args.adapter_name])
+                f"Found adapter module with name {data_args.adapter_name} in config")
+            model.set_active_adapters([data_args.adapter_name])
             model.freeze_model(False)
-            )
 
     # Tokenizer check: this script requires a fast tokenizer.
     if not isinstance(tokenizer, PreTrainedTokenizerFast):
@@ -402,23 +394,23 @@ def main():
 
     # Preprocessing the dataset
     # Padding strategy
-    padding="max_length" if data_args.pad_to_max_length else False
+    padding = "max_length" if data_args.pad_to_max_length else False
 
     # Tokenize all texts and align the labels with them.
     def tokenize_and_align_labels(examples):
-        tokenized_inputs=tokenizer(
+        tokenized_inputs = tokenizer(
             examples[text_column_name],
-            padding = padding,
-            truncation = True,
-            max_length = data_args.max_seq_length,
+            padding=padding,
+            truncation=True,
+            max_length=data_args.max_seq_length,
             # We use this argument because the texts in our dataset are lists of words (with a label for each word).
-            is_split_into_words = True,
+            is_split_into_words=True,
         )
-        labels=[]
+        labels = []
         for i, label in enumerate(examples[label_column_name]):
-            word_ids=tokenized_inputs.word_ids(batch_index = i)
-            previous_word_idx=None
-            label_ids=[]
+            word_ids = tokenized_inputs.word_ids(batch_index=i)
+            previous_word_idx = None
+            label_ids = []
             for word_idx in word_ids:
                 # Special tokens have a word id that is None. We set the label to -100 so they are automatically
                 # ignored in the loss function.
@@ -435,18 +427,18 @@ def main():
                             b_to_i_label[label_to_id[label[word_idx]]])
                     else:
                         label_ids.append(-100)
-                previous_word_idx=word_idx
+                previous_word_idx = word_idx
 
             labels.append(label_ids)
-        tokenized_inputs["labels"]=labels
+        tokenized_inputs["labels"] = labels
         return tokenized_inputs
 
     if training_args.do_train:
         if "train" not in raw_datasets:
             raise ValueError("--do_train requires a train dataset")
-        train_dataset=raw_datasets["train"]
+        train_dataset = raw_datasets["train"]
         if data_args.max_train_samples is not None:
-            train_dataset=train_dataset.select(
+            train_dataset = train_dataset.select(
                 range(data_args.max_train_samples))
         with training_args.main_process_first(desc="train dataset map pre-processing"):
             train_dataset = train_dataset.map(
