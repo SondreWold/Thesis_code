@@ -141,6 +141,14 @@ class DataTrainingArguments:
             "than this will be truncated, sequences shorter will be padded."
         },
     )
+
+    tune_both: bool = field(
+        default=False
+    )
+    adapter_name: str = field(
+        default=None
+    )
+
     pad_to_max_length: bool = field(
         default=False,
         metadata={
@@ -375,54 +383,13 @@ def main():
     )
 
     # Setup adapters
-    if adapter_args.train_adapter:
-        task_name = data_args.dataset_name or "ner"
-        # check if adapter already exists, otherwise add it
-        if task_name not in model.config.adapters:
-            # resolve the adapter config
-            adapter_config = AdapterConfig.load(
-                adapter_args.adapter_config,
-                non_linearity=adapter_args.adapter_non_linearity,
-                reduction_factor=adapter_args.adapter_reduction_factor,
-            )
-            # load a pre-trained from Hub if specified
-            if adapter_args.load_adapter:
-                model.load_adapter(
-                    adapter_args.load_adapter,
-                    config=adapter_config,
-                    load_as=task_name,
-                )
-            # otherwise, add a fresh adapter
-            else:
-                model.add_adapter(task_name, config=adapter_config)
-        # optionally load a pre-trained language adapter
-        if adapter_args.load_lang_adapter:
-            # resolve the language adapter config
-            lang_adapter_config = AdapterConfig.load(
-                adapter_args.lang_adapter_config,
-                non_linearity=adapter_args.lang_adapter_non_linearity,
-                reduction_factor=adapter_args.lang_adapter_reduction_factor,
-            )
-            # load the language adapter from Hub
-            lang_adapter_name = model.load_adapter(
-                adapter_args.load_lang_adapter,
-                config=lang_adapter_config,
-                load_as=adapter_args.language,
-            )
-        else:
-            lang_adapter_name = None
-        # Freeze all model weights except of those of this adapter
-        model.train_adapter([task_name])
-        # Set the adapters to be used in every forward pass
-        if lang_adapter_name:
-            model.set_active_adapters(ac.Stack(lang_adapter_name, task_name))
-        else:
-            model.set_active_adapters([task_name])
-    else:
-        if adapter_args.load_adapter or adapter_args.load_lang_adapter:
-            raise ValueError(
-                "Adapters can only be loaded in adapters training mode."
-                "Use --train_adapter to enable adapter training"
+    if args.tune_both:
+        logger.info("Setting: tuning both activated")
+        if args.adapter_name in model.config.adapters:
+            logger.info(
+                f"Found adapter module with name {args.adapter_name} in config")
+            model.set_active_adapters([args.adapter_name])
+            model.freeze_model(False)
             )
 
     # Tokenizer check: this script requires a fast tokenizer.
@@ -435,23 +402,23 @@ def main():
 
     # Preprocessing the dataset
     # Padding strategy
-    padding = "max_length" if data_args.pad_to_max_length else False
+    padding="max_length" if data_args.pad_to_max_length else False
 
     # Tokenize all texts and align the labels with them.
     def tokenize_and_align_labels(examples):
-        tokenized_inputs = tokenizer(
+        tokenized_inputs=tokenizer(
             examples[text_column_name],
-            padding=padding,
-            truncation=True,
-            max_length=data_args.max_seq_length,
+            padding = padding,
+            truncation = True,
+            max_length = data_args.max_seq_length,
             # We use this argument because the texts in our dataset are lists of words (with a label for each word).
-            is_split_into_words=True,
+            is_split_into_words = True,
         )
-        labels = []
+        labels=[]
         for i, label in enumerate(examples[label_column_name]):
-            word_ids = tokenized_inputs.word_ids(batch_index=i)
-            previous_word_idx = None
-            label_ids = []
+            word_ids=tokenized_inputs.word_ids(batch_index = i)
+            previous_word_idx=None
+            label_ids=[]
             for word_idx in word_ids:
                 # Special tokens have a word id that is None. We set the label to -100 so they are automatically
                 # ignored in the loss function.
@@ -468,18 +435,18 @@ def main():
                             b_to_i_label[label_to_id[label[word_idx]]])
                     else:
                         label_ids.append(-100)
-                previous_word_idx = word_idx
+                previous_word_idx=word_idx
 
             labels.append(label_ids)
-        tokenized_inputs["labels"] = labels
+        tokenized_inputs["labels"]=labels
         return tokenized_inputs
 
     if training_args.do_train:
         if "train" not in raw_datasets:
             raise ValueError("--do_train requires a train dataset")
-        train_dataset = raw_datasets["train"]
+        train_dataset=raw_datasets["train"]
         if data_args.max_train_samples is not None:
-            train_dataset = train_dataset.select(
+            train_dataset=train_dataset.select(
                 range(data_args.max_train_samples))
         with training_args.main_process_first(desc="train dataset map pre-processing"):
             train_dataset = train_dataset.map(
