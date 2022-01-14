@@ -290,8 +290,7 @@ def main():
         if args.adapter_name in model.config.adapters:
             logger.info("Found adapter in adapter config")
             logger.info(f"{model.config.adapters}")
-            model.train_adapter([args.adapter_name])  # activate adapter
-            model.set_active_adapters([args.adapter_name])
+            model.set_active_adapters(args.adapter_name)
             model.freeze_model(False)  # keep normal weights dynamic
         else:
             logger.info("Model name not found in adapter configuration...")
