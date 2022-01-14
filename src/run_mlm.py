@@ -120,7 +120,7 @@ def parse_args():
     parser.add_argument(
         "--learning_rate",
         type=float,
-        default=5e-5,
+        default=1e-4,
         help="Initial learning rate (after the potential warmup period) to use.",
     )
     parser.add_argument("--weight_decay", type=float,
@@ -183,7 +183,7 @@ def parse_args():
         "--overwrite_cache", type=bool, default=False, help="Overwrite the cached training and evaluation sets"
     )
     parser.add_argument(
-        "--mlm_probability", type=float, default=0.25, help="Ratio of tokens to mask for masked language modeling loss"
+        "--mlm_probability", type=float, default=0.15, help="Ratio of tokens to mask for masked language modeling loss"
     )
 
     parser.add_argument(
@@ -295,6 +295,7 @@ def main():
                 split=f"train[{args.validation_split_percentage}%:]",
             )
     else:
+        logger.info("Loading custom dataset file")
         data_files = {}
         if args.train_file is not None:
             data_files["train"] = args.train_file
@@ -349,25 +350,26 @@ def main():
     # ADAPTER SETUP
     logger.info(
         f"Adapter training set to True. Adding module with name: {args.adapter_name}")
-    task_name = args.adapter_name
     # check if adapter already exists, otherwise add it
-    if task_name not in model.config.adapters:
+    if args.adapter_name not in model.config.adapters:
         # resolve the adapter config
         logger.info(
             f"Initializing adapter with architecture: {args.adapter_config}")
         adapter_config = AdapterConfig.load(
             args.adapter_config, non_linearity=args.non_linearity, reduction_factor=args.reduction_factor
         )
-        model.add_adapter(task_name, config=adapter_config)
+        model.add_adapter(args.adapter_name, config=adapter_config)
     else:
         logger.info(
             "There is already an adapter module in the model with the same name.")
 
     # Freeze all transformer weights except of those of the added adapter
-    model.train_adapter([task_name])
-    model.set_active_adapters(task_name)
+    logger.info("Activate adapter")
+    model.train_adapter([args.adapter_name])
+    model.set_active_adapters(args.adapter_name)
 
     if args.tune_all_parameters:
+        logger.info("Opening normal transformer weights...")
         model.freeze_model(False)  # keep original transformer weights dynamic
 
     # Preprocessing the datasets.
@@ -582,7 +584,7 @@ def main():
         unwrapped_model.save_pretrained(
             args.output_dir, save_function=accelerator.save)
         unwrapped_model.save_adapter(
-            args.output_dir + "adapters/", args.adapter_name)
+            args.output_dir + "/adapters/", args.adapter_name)
 
 
 if __name__ == "__main__":
