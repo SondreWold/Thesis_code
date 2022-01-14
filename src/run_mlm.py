@@ -216,7 +216,7 @@ def parse_args():
     parser.add_argument(
         "--tune_all_parameters",
         type=bool,
-        default="False",
+        default=False,
         help="Keep the original transformer parameters open. Tune everything, included the adapter, on the mlm objective.",
     )
 
@@ -368,7 +368,7 @@ def main():
     model.train_adapter([args.adapter_name])
     model.set_active_adapters(args.adapter_name)
 
-    if args.tune_all_parameters:
+    if args.tune_all_parameters == True:
         logger.info("Opening normal transformer weights...")
         model.freeze_model(False)  # keep original transformer weights dynamic
 

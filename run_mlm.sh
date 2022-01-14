@@ -10,7 +10,7 @@ python $TRAINING_FOLDER/run_mlm.py \
     --train_file $TRAIN_FILE \
     --validation_file $VAL_FILE \
     --output_dir $OUTPUT_DIR \
-    --pad_to_max_length True \
+    --pad_to_max_length \
     --line_by_line True \
     --adapter_name "mlm_houlsby_og" \
     --adapter_config "houlsby" \
