@@ -10,7 +10,7 @@ from datasets import load_dataset
 
 
 
-def evaluate_lama(model, data, at_k, is_logging=False):
+def evaluate_lama(model, data, at_k, relations=[], is_logging=False):
     '''
     Calculates the precision @ k for a model on the LAMA dataset. If k=1, then we get normal accuracy.
     Since we have only one relevant item irrespective of k, p@k=1 if the term is in the top k documents. 
@@ -18,6 +18,10 @@ def evaluate_lama(model, data, at_k, is_logging=False):
     points = 0
     n = len(data)
     for line in tqdm(data):
+        if relations:
+            if line["pred"] not in relations:
+                n -= 1
+                continue
         correct = line["obj_label"]
         # Ignore OOV words. 
         obj_label_id = model.tokenizer.vocab.get(correct)
@@ -52,6 +56,7 @@ def main():
     parse.add_argument("--tokenizer_name", type=str, default="bert-base-uncased")
     parse.add_argument("--use_adapter", action='store_true')
     parse.add_argument('--full_eval', action='store_true')
+    parse.add_argument('--relations', nargs='+', default=[])
 
     args = parse.parse_args()
 
