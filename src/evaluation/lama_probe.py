@@ -29,12 +29,14 @@ def evaluate_lama(model, data, at_k, relations=[], is_logging=False):
         if obj_label_id is None:
             n -= 1
             continue
-        if is_logging: logger.info(f"Correct answer is {correct}")
         sentence = line["masked_sentence"].replace("[MASK]", "<mask>") if "roberta" in model.model.config.name_or_path else line["masked_sentence"]
+        if is_logging:
+            logger.info(f"Sentence is {sentence}")
+            logger.info(f"Correct answer is {correct}")
         predictions = model(sentence)
-        for pred in predictions[0:at_k]:
+        for pred in predictions:
             if is_logging: logger.info(f"Prediction was {pred['token_str']}")
-            if pred["token_str"] == correct:
+            if pred["token_str"].strip().lower() == correct:
                 points += 1
     return points/n
 
@@ -53,7 +55,7 @@ def main():
         "--model_name_or_path", type=str, help="name of the used masked language model", default="bert-base-uncased")
     parse.add_argument("--gpu", type=int, default=-1)
     parse.add_argument("--lama_path", type=str, default=None)
-    parse.add_argument("--at_k", type=int, default=1)
+    parse.add_argument("--at_k", type=int, default=5)
     parse.add_argument("--adapter_name", type=str, default=None)
     parse.add_argument("--tokenizer_name", type=str, default="bert-base-uncased")
     parse.add_argument("--use_adapter", action='store_true')
