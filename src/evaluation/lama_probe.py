@@ -1,28 +1,35 @@
 import argparse
 import json
 import logging
+from tqdm import tqdm
 from typing import List, Dict
 from transformers import pipeline, Pipeline, AutoConfig, AutoTokenizer, AutoModelForMaskedLM
 logger = logging.getLogger(__name__)
 
 
 
-def evaluate_lama(model, data):
-    
-    correct = 0
-
-    for line in data:
+def evaluate_lama(model, data, at_k, is_logging=False):
+    '''
+    Calculates the precision @ k for a model on the LAMA dataset. If k=1, then we get normal accuracy.
+    Since we have only one relevant item irrespective of k, p@k=1 if the term is in the top k documents. 
+    '''
+    points = 0
+    n = len(data)
+    for line in tqdm(data):
         correct = line["obj_label"]
-        pred = model(line["masked_sentences"])
-
-        logger.info(f"Sentence: {line['masked_sentences']}")
-        logger.info(f"Predictions: {pred}")
-    
-    
-    return None
+        # Ignore OOV words. 
+        obj_label_id = model.tokenizer.vocab.get(correct)
+        if obj_label_id is None:
+            continue
+        if is_logging: logger.info(f"Correct answer is {correct}")
+        predictions = model(line["masked_sentences"])
+        for pred in predictions[0:at_k]:
+            if is_logging: logger.info(f"Prediction was {pred['token_str']}")
+            if pred["token_str"] == correct:
+                points += 1
+    return points/n
 
 def read_jsonl_file(filename: str) -> List[Dict]:
-
     dataset = []
     with open(filename) as f:
         for line in f:
@@ -34,8 +41,9 @@ def read_jsonl_file(filename: str) -> List[Dict]:
 def main():
     parse = argparse.ArgumentParser("")
     parse.add_argument(
-        "--lm", type=str, help="name of the used masked language model", default="bert-base-uncased")
+        "--model_name_or_path", type=str, help="name of the used masked language model", default="bert-base-uncased")
     parse.add_argument("--gpu", type=int, default=-1)
+    parse.add_argument("--at_k", type=int, default=1)
     parse.add_argument("--adapter_name", type=str, default=None)
     parse.add_argument("--tokenizer_name", type=str, default="bert-base-uncased")
     parse.add_argument("--use_adapter", action='store_true')
@@ -52,7 +60,8 @@ def main():
     # Load data
     data = read_jsonl_file("../../data/LAMA/data/ConceptNet/test.jsonl")
 
-    lm = args.lm
+    lm = args.model_name_or_path
+    logging.info(f"Initializing a model from name or path: {lm} and tokenizer {args.tokenizer_name}")
     config = AutoConfig.from_pretrained(lm)
     model = AutoModelForMaskedLM.from_pretrained(lm, config=config)
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_name)
@@ -64,12 +73,10 @@ def main():
         model.freeze_model(False)
 
     model = pipeline("fill-mask", model=model,
-                        tokenizer=tokenizer, device=device, top_k=5)
+                        tokenizer=tokenizer, device=device, top_k=args.at_k)
 
-
-    # Evaluate on LAMA
-    accuracy = evaluate_lama(model, data)
-    logger.info(accuracy)
+    mean_p_at_k = evaluate_lama(model, data, args.at_k)
+    logger.info(f"Precision for model @{args.at_k} was {mean_p_at_k}")
 
 
     ###
