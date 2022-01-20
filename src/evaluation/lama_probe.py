@@ -81,10 +81,11 @@ def main():
     if args.full_eval:
         results = {}
         for k in [1,10,100]:
+            logging.info(f"Calculating for k={k}")
             model = pipeline("fill-mask", model=model,
                         tokenizer=tokenizer, device=device, top_k=k)
-            mean_p_at_k = evaluate_lama(model, data, args.at_k)
-            logger.info(f"Precision for model @{args.at_k} was {mean_p_at_k}")
+            mean_p_at_k = evaluate_lama(model, data, args.k)
+            logger.info(f"Precision for model @{args.k} was {mean_p_at_k}")
             results[k] = mean_p_at_k
         with open(f"./lama_results_{adapter_flag}_{name}_{args.tokenizer_name}_.txt", 'w+') as f:
             f.write(f"Results for model loaded from path {args.model_name_or_path} with tokenizer: {args.tokenizer_name}")
