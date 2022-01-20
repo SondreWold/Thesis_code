@@ -10,8 +10,6 @@ from datasets import load_dataset
 
 
 
-
-
 def evaluate_lama(model, data, at_k, is_logging=False):
     '''
     Calculates the precision @ k for a model on the LAMA dataset. If k=1, then we get normal accuracy.
@@ -27,7 +25,7 @@ def evaluate_lama(model, data, at_k, is_logging=False):
             n -= 1
             continue
         if is_logging: logger.info(f"Correct answer is {correct}")
-        predictions = model(line["masked_sentences"])
+        predictions = model(line["masked_sentence"])
         for pred in predictions[0:at_k]:
             if is_logging: logger.info(f"Prediction was {pred['token_str']}")
             if pred["token_str"] == correct:
@@ -65,7 +63,7 @@ def main():
 
     # Load data
     #data = read_jsonl_file(args.lama_path)
-    data = load_dataset("lama", "conceptnet")
+    data = load_dataset("lama", "conceptnet")["train"]
 
     lm = args.model_name_or_path
     logging.info(f"Initializing a model from name or path: {lm} and tokenizer {args.tokenizer_name}")
