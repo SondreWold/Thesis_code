@@ -17,6 +17,7 @@ def evaluate_lama(model, data, at_k, relations=[], is_logging=False):
     '''
     points = 0
     n = len(data)
+    logger.info(f"Relations specified: {relations}")
     for line in tqdm(data):
         if relations:
             if line["pred"] not in relations:
@@ -56,9 +57,10 @@ def main():
     parse.add_argument("--tokenizer_name", type=str, default="bert-base-uncased")
     parse.add_argument("--use_adapter", action='store_true')
     parse.add_argument('--full_eval', action='store_true')
-    parse.add_argument('--relations', nargs='+', default=[])
+    parse.add_argument('--relations', nargs='*', default=[])
 
     args = parse.parse_args()
+
 
     logging.basicConfig(
         format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
@@ -89,7 +91,7 @@ def main():
             logging.info(f"Calculating for k={k}")
             model = pipeline("fill-mask", model=base_model,
                         tokenizer=tokenizer, device=device, top_k=k)
-            mean_p_at_k = evaluate_lama(model, data, k)
+            mean_p_at_k = evaluate_lama(model, data, k, args.relations)
             logger.info(f"Precision for model @{k} was {mean_p_at_k}")
             results[k] = mean_p_at_k
         with open(f"./lama_results_{adapter_flag}_{name}_{args.tokenizer_name}_.txt", 'w+') as f:
@@ -100,7 +102,7 @@ def main():
     else:
         model = pipeline("fill-mask", model=base_model,
                         tokenizer=tokenizer, device=device, top_k=args.at_k)
-        mean_p_at_k = evaluate_lama(model, data, args.at_k)
+        mean_p_at_k = evaluate_lama(model, data, args.at_k, args.relations)
         logger.info(f"Precision for model @{args.at_k} was {mean_p_at_k}")
 
 if __name__ == '__main__':
