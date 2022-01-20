@@ -51,6 +51,7 @@ def main():
     parse.add_argument("--adapter_name", type=str, default=None)
     parse.add_argument("--tokenizer_name", type=str, default="bert-base-uncased")
     parse.add_argument("--use_adapter", action='store_true')
+    parse.add_argument('--full_eval', action='store_true')
 
     args = parse.parse_args()
 
@@ -61,9 +62,7 @@ def main():
     )
     logger.setLevel(logging.INFO)
 
-    # Load data
-    #data = read_jsonl_file(args.lama_path)
-    data = load_dataset("lama", "conceptnet")["train"]
+    data = load_dataset("lama", "conceptnet")["train"] #from Huggingface
 
     lm = args.model_name_or_path
     logging.info(f"Initializing a model from name or path: {lm} and tokenizer {args.tokenizer_name}")
@@ -72,23 +71,31 @@ def main():
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_name)
     device = args.gpu
 
+    name = lm if not args.use_adapter else args.adapter_name
+    adapter_flag = "adapter" if args.use_adapter else "normal"
     if args.use_adapter:
         logger.info("Load Adapter model")
         model.set_active_adapters([args.adapter_name])
         model.freeze_model(False)
 
-    model = pipeline("fill-mask", model=model,
+    if args.full_eval:
+        results = {}
+        for k in [0,10,100]:
+            model = pipeline("fill-mask", model=model,
+                        tokenizer=tokenizer, device=device, top_k=k)
+            mean_p_at_k = evaluate_lama(model, data, args.at_k)
+            logger.info(f"Precision for model @{args.at_k} was {mean_p_at_k}")
+            results[k] = mean_p_at_k
+        with open(f"./lama_results_{adapter_flag}_{name}_{args.tokenizer_name}_.txt", 'w+') as f:
+            f.write(f"Results for model loaded from path {args.model_name_or_path} with tokenizer: {args.tokenizer_name}")
+            for key, value in results.items():
+                f.write(f"Precision@{key}: {value} \n")
+                
+    else:
+        model = pipeline("fill-mask", model=model,
                         tokenizer=tokenizer, device=device, top_k=args.at_k)
-
-    #data = random.sample(data, 1000)
-    mean_p_at_k = evaluate_lama(model, data, args.at_k)
-    logger.info(f"Precision for model @{args.at_k} was {mean_p_at_k}")
-
-
-    ###
-    ### with open('data/output/predictions_lm/trex_lms_vocab/{}_{}.json'.format(pattern, lm), 'w+') as f:
-    ###   json.dump(lm_results, f)
-    ###
+        mean_p_at_k = evaluate_lama(model, data, args.at_k)
+        logger.info(f"Precision for model @{args.at_k} was {mean_p_at_k}")
 
 if __name__ == '__main__':
     main()
