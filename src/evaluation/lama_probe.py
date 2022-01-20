@@ -2,13 +2,13 @@ import argparse
 import json
 import logging
 import random
+import string
 from tqdm import tqdm
 from typing import List, Dict
 from transformers import pipeline, Pipeline, AutoConfig, AutoTokenizer, AutoModelForMaskedLM
 logger = logging.getLogger(__name__)
 from datasets import load_dataset
-
-
+import string
 
 def evaluate_lama(model, data, at_k, relations=[], is_logging=False):
     '''
@@ -19,6 +19,8 @@ def evaluate_lama(model, data, at_k, relations=[], is_logging=False):
     n = len(data)
     logger.info(f"Relations specified: {relations}")
     for line in tqdm(data):
+        if "roberta" in model.model.config.name_or_path:
+            line["masked_sentence"] = line["masked_sentence"].replace("[MASK]", "<mask>")
         if relations:
             if line["pred"] not in relations:
                 n -= 1
