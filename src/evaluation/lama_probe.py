@@ -6,6 +6,9 @@ from tqdm import tqdm
 from typing import List, Dict
 from transformers import pipeline, Pipeline, AutoConfig, AutoTokenizer, AutoModelForMaskedLM
 logger = logging.getLogger(__name__)
+from datasets import load_dataset
+
+
 
 
 
@@ -61,7 +64,8 @@ def main():
     logger.setLevel(logging.INFO)
 
     # Load data
-    data = read_jsonl_file(args.lama_path)
+    #data = read_jsonl_file(args.lama_path)
+    data = load_dataset("lama", "conceptnet")
 
     lm = args.model_name_or_path
     logging.info(f"Initializing a model from name or path: {lm} and tokenizer {args.tokenizer_name}")
@@ -78,7 +82,7 @@ def main():
     model = pipeline("fill-mask", model=model,
                         tokenizer=tokenizer, device=device, top_k=args.at_k)
 
-    data = random.sample(data, 1000)
+    #data = random.sample(data, 1000)
     mean_p_at_k = evaluate_lama(model, data, args.at_k)
     logger.info(f"Precision for model @{args.at_k} was {mean_p_at_k}")
 
