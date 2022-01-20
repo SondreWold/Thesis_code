@@ -1,6 +1,7 @@
 import argparse
 import json
 import logging
+import random
 from tqdm import tqdm
 from typing import List, Dict
 from transformers import pipeline, Pipeline, AutoConfig, AutoTokenizer, AutoModelForMaskedLM
@@ -20,6 +21,7 @@ def evaluate_lama(model, data, at_k, is_logging=False):
         # Ignore OOV words. 
         obj_label_id = model.tokenizer.vocab.get(correct)
         if obj_label_id is None:
+            n -= 1
             continue
         if is_logging: logger.info(f"Correct answer is {correct}")
         predictions = model(line["masked_sentences"])
@@ -76,6 +78,7 @@ def main():
     model = pipeline("fill-mask", model=model,
                         tokenizer=tokenizer, device=device, top_k=args.at_k)
 
+    data = random.sample(data, 1000)
     mean_p_at_k = evaluate_lama(model, data, args.at_k)
     logger.info(f"Precision for model @{args.at_k} was {mean_p_at_k}")
 
