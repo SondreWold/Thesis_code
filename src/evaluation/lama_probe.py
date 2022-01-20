@@ -19,8 +19,6 @@ def evaluate_lama(model, data, at_k, relations=[], is_logging=False):
     n = len(data)
     logger.info(f"Relations specified: {relations}")
     for line in tqdm(data):
-        if "roberta" in model.model.config.name_or_path:
-            line["masked_sentence"] = line["masked_sentence"].replace("[MASK]", "<mask>")
         if relations:
             if line["pred"] not in relations:
                 n -= 1
@@ -32,7 +30,8 @@ def evaluate_lama(model, data, at_k, relations=[], is_logging=False):
             n -= 1
             continue
         if is_logging: logger.info(f"Correct answer is {correct}")
-        predictions = model(line["masked_sentence"])
+        sentence = line["masked_sentence"].replace("[MASK]", "<mask>") if "roberta" in model.model.config.name_or_path else line["masked_sentence"]
+        predictions = model(sentence)
         for pred in predictions[0:at_k]:
             if is_logging: logger.info(f"Prediction was {pred['token_str']}")
             if pred["token_str"] == correct:
