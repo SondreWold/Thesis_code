@@ -88,7 +88,7 @@ def main():
             logger.info(f"Precision for model @{k} was {mean_p_at_k}")
             results[k] = mean_p_at_k
         with open(f"./lama_results_{adapter_flag}_{name}_{args.tokenizer_name}_.txt", 'w+') as f:
-            f.write(f"Results for model loaded from path {args.model_name_or_path} with tokenizer: {args.tokenizer_name}")
+            f.write(f"Results for model loaded from path {args.model_name_or_path} with tokenizer: {args.tokenizer_name} \n")
             for key, value in results.items():
                 f.write(f"Precision@{key}: {value} \n")
                 
