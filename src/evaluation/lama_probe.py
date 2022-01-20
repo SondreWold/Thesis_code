@@ -67,7 +67,7 @@ def main():
     lm = args.model_name_or_path
     logging.info(f"Initializing a model from name or path: {lm} and tokenizer {args.tokenizer_name}")
     config = AutoConfig.from_pretrained(lm)
-    model = AutoModelForMaskedLM.from_pretrained(lm, config=config)
+    base_model = AutoModelForMaskedLM.from_pretrained(lm, config=config)
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_name)
     device = args.gpu
 
@@ -75,14 +75,14 @@ def main():
     adapter_flag = "adapter" if args.use_adapter else "normal"
     if args.use_adapter:
         logger.info("Load Adapter model")
-        model.set_active_adapters([args.adapter_name])
-        model.freeze_model(False)
+        base_model.set_active_adapters([args.adapter_name])
+        base_model.freeze_model(False)
 
     if args.full_eval:
         results = {}
         for k in [1,10,100]:
             logging.info(f"Calculating for k={k}")
-            model = pipeline("fill-mask", model=model,
+            model = pipeline("fill-mask", model=base_model,
                         tokenizer=tokenizer, device=device, top_k=k)
             mean_p_at_k = evaluate_lama(model, data, k)
             logger.info(f"Precision for model @{k} was {mean_p_at_k}")
@@ -93,7 +93,7 @@ def main():
                 f.write(f"Precision@{key}: {value} \n")
                 
     else:
-        model = pipeline("fill-mask", model=model,
+        model = pipeline("fill-mask", model=base_model,
                         tokenizer=tokenizer, device=device, top_k=args.at_k)
         mean_p_at_k = evaluate_lama(model, data, args.at_k)
         logger.info(f"Precision for model @{args.at_k} was {mean_p_at_k}")
