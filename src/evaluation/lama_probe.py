@@ -80,7 +80,7 @@ def main():
 
     if args.full_eval:
         results = {}
-        for k in [0,10,100]:
+        for k in [1,10,100]:
             model = pipeline("fill-mask", model=model,
                         tokenizer=tokenizer, device=device, top_k=k)
             mean_p_at_k = evaluate_lama(model, data, args.at_k)
