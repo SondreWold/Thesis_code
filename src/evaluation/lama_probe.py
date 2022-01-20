@@ -43,6 +43,7 @@ def main():
     parse.add_argument(
         "--model_name_or_path", type=str, help="name of the used masked language model", default="bert-base-uncased")
     parse.add_argument("--gpu", type=int, default=-1)
+    parse.add_argument("--lama_path", type=str, default=None)
     parse.add_argument("--at_k", type=int, default=1)
     parse.add_argument("--adapter_name", type=str, default=None)
     parse.add_argument("--tokenizer_name", type=str, default="bert-base-uncased")
@@ -58,7 +59,7 @@ def main():
     logger.setLevel(logging.INFO)
 
     # Load data
-    data = read_jsonl_file("../../data/LAMA/data/ConceptNet/test.jsonl")
+    data = read_jsonl_file(args.lama_path)
 
     lm = args.model_name_or_path
     logging.info(f"Initializing a model from name or path: {lm} and tokenizer {args.tokenizer_name}")
