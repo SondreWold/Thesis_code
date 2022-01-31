@@ -7,6 +7,13 @@ default_dict = {
   "synonyms": "is a synonym of"
   }
 
+default_relations = [
+"antonyms",
+"isA",
+"mannerOf",
+"synonyms",
+]
+
 LAMA_relations = [
   "atLocation",
   "capableOf",
@@ -46,13 +53,17 @@ LAMA_dict = {
 } 
 
 def create_joined_assertions_for_random_walks(paths=[], relation_dict = default_dict, output_path="../data/concept_net/randomwalks/cn_assertions_filtered.tsv"):
-
+  counts = {}
   all_assertions = []
   for path in paths:
     relation = path.split("cn_")[1].split(".txt")[0]
     nl_relation = relation_dict[relation]
     with codecs.open(path, "r", "utf8") as f:
       for line in f.readlines():
+        if nl_relation in counts:
+          counts[nl_relation] = counts[nl_relation] + 1
+        else:
+          counts[nl_relation] = 1
         word_a, word_b = line.strip().split("\t")
         full_assertion = [word_a, word_b, nl_relation]
         all_assertions.append(full_assertion)
@@ -61,6 +72,7 @@ def create_joined_assertions_for_random_walks(paths=[], relation_dict = default_
           full_assertion_b = [word_b, word_a, nl_relation]
           all_assertions.append(full_assertion_b)
   print("In total, we have %d assertions" % len(all_assertions))
+  print(counts)
   with codecs.open(output_path, "w", "utf8") as out:
     for assertion in all_assertions:
       out.write(assertion[0] + "\t" + assertion[1] + "\t" + assertion[2] + "\n")
@@ -70,7 +82,7 @@ def create_joined_assertions_for_random_walks(paths=[], relation_dict = default_
 def main():
   paths = [f"../data/concept_net/relations/cn_{x}.txt" for x in LAMA_relations]
   relation_dict = LAMA_dict
-  create_joined_assertions_for_random_walks(paths=paths, relation_dict=relation_dict)
+  create_joined_assertions_for_random_walks(paths=paths, relation_dict=relation_dict, output_path="./test2.txt")
 
 if __name__ == "__main__":
   main()

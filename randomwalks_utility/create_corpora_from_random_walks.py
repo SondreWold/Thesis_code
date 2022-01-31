@@ -77,7 +77,7 @@ def generate_corpus_from_walks(walks, output_path_prefix="../data/concept_net/ra
 
 
 def main():
-  in_prefix = "../data/concept_net/randomwalks/random_walk_"
+  in_prefix = "./random_walk_"
   in_suffix = "1.0_1.0_2_15"
   walks = load_walks(in_prefix + in_suffix + ".p")
   generate_corpus_from_walks(walks, output_path_suffix=in_suffix + "_nl")

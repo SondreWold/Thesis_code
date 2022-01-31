@@ -3,7 +3,7 @@ import networkx as nx
 import random
 import pickle
 
-def read_graph(path="../data/concept_net/randomwalks/cn_assertions_filtered.tsv"):
+def read_graph(path):
   '''
   Reads the input network in networkx.
   '''
@@ -191,25 +191,25 @@ def alias_draw(J, q):
 
 """
 
-def generate_random_walks_from_assertions():
+def generate_random_walks_from_assertions(path, output_folder):
   p = 1.0  # return hyperparameter
   q = 1.0  # inout hyperparameter
   is_directed = True  # whether the graph is directed
   num_walks = 2  # number of wandom walks per source def. 10
   walk_length = 15  # length of walk per source def. 80
 
-  nx_G = read_graph(path="../data/concept_net/randomwalks/cn_assertions_filtered.tsv")
+  nx_G = read_graph(path=path)
   G = Graph(nx_G, is_directed, p, q)
   G.preprocess_transition_probs()
   walks = G.simulate_walks(num_walks, walk_length)
-  filename = "../data/concept_net/randomwalks/random_walk_" + str(p) + "_" + str(q) + "_" + str(num_walks) + "_" + str(walk_length) + ".p"
+  filename = output_folder + "/random_walk_" + str(p) + "_" + str(q) + "_" + str(num_walks) + "_" + str(walk_length) + ".p"
   with open(filename, 'wb') as handle:
     pickle.dump(walks, handle)
   print(len(walks))
 
 
-def analyze_graph():
-  nx_G = read_graph(path="../data/concept_net/randomwalks/cn_assertions_filtered.tsv")
+def analyze_graph(path):
+  nx_G = read_graph(path=path)
   print("%d nodes in the graph" % nx_G.number_of_nodes())
   print("%d edges in the graph" % nx_G.number_of_edges())
   print("%f density of graph" % nx.density(nx_G))
@@ -246,10 +246,11 @@ def load_random_walk(p):
   walk = pickle.load(open(p, 'rb'))
   return walk
 
-
 def main():
-  generate_random_walks_from_assertions()
-  #analyze_graph()
+  path = "./test.txt"
+  output_folder = "."
+  generate_random_walks_from_assertions(path=path, output_folder=output_folder)
+  #analyze_graph(path)
   # load_random_walk(p="./randomwalks/random_walk_1.0_1.0_2_10.p")
 
 if __name__=="__main__":
