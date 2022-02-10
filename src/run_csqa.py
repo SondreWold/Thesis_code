@@ -45,6 +45,9 @@ from transformers import (
     AutoTokenizer,
     PreTrainedTokenizerBase,
     SchedulerType,
+    RobertaConfig,
+    RobertaForMultipleChoice,
+        RobertaTokenizer,
     default_data_collator,
     get_scheduler,
     set_seed,
@@ -343,6 +346,9 @@ def examples_to_features(examples, label_list, max_seq_length, tokenizer,
     For classification tasks, the first vector (corresponding to [CLS]) is used as as the "sentence vector".
     Note that this only makes sense because the entire model is fine-tuned.
     """
+    print(f"SEP TOKEN EXTRA IS: {sep_token_extra}")
+    print(f"Pad token id: {pad_token}")
+
 
     label_map = {label: i for i, label in enumerate(label_list)}
 
@@ -453,13 +459,13 @@ def load_features(args, tokenizer, mode='train'):
 
     print("Training number:", str(len(examples)))
     features = examples_to_features(examples, label_list, args.max_seq_length, tokenizer,
-                                    cls_token_at_end=False,
+                                    cls_token_at_end=bool(args.model_type in ['xlnet']),
                                     cls_token=tokenizer.cls_token,
                                     sep_token=tokenizer.sep_token,
-                                    sep_token_extra=False,
-                                    cls_token_segment_id=0,
-                                    pad_on_left=False,
-                                    pad_token_segment_id=0)
+                                    sep_token_extra=bool(args.model_type in ['roberta']),
+                                    cls_token_segment_id=2 if args.model_type in ['xlnet'] else 0,
+                                    pad_on_left=bool(args.model_type in ['xlnet']),
+                                    pad_token_segment_id=4 if args.model_type in ['xlnet'] else 0)
 
     # Convert to Tensors and build dataset
     all_input_ids = torch.tensor(select_field(
@@ -527,11 +533,8 @@ def main():
             "You are instantiating a new config instance from scratch.")
 
     if args.tokenizer_name:
-        tokenizer = AutoTokenizer.from_pretrained(
-            args.tokenizer_name, use_fast=not args.use_slow_tokenizer)
-    elif args.model_name_or_path:
-        tokenizer = AutoTokenizer.from_pretrained(
-            args.model_name_or_path, use_fast=not args.use_slow_tokenizer)
+        logger.info(f"Loading tokenizer: {args.tokenizer_name}")
+        tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_name)
     else:
         raise ValueError(
             "You are instantiating a new tokenizer from scratch. This is not supported by this script."
@@ -560,7 +563,6 @@ def main():
             model.set_active_adapters([args.adapter_name])
             model.freeze_model(False)
 
-    model.resize_token_embeddings(len(tokenizer))
 
     print('\n Loading training dataset')
     dataset_tr = load_features(args, tokenizer, mode='train')
@@ -574,7 +576,9 @@ def main():
     eval_dataloader = DataLoader(
         dataset_val, sampler=sampler_val, batch_size=args.batch_size)
 
-    # Optimizer
+    model.base_model.resize_token_embeddings(len(tokenizer))
+
+    # Optimizer 
     # Split weights in two groups, one with weight decay and the other not.
     no_decay = ["bias", "LayerNorm.weight"]
     optimizer_grouped_parameters = [
@@ -588,6 +592,7 @@ def main():
         },
     ]
     optimizer = AdamW(optimizer_grouped_parameters, lr=args.learning_rate)
+    
 
     # Use the device given by the `accelerator` object.
     device = accelerator.device
@@ -639,13 +644,47 @@ def main():
                         disable=not accelerator.is_local_main_process)
     completed_steps = 0
 
+    
+    logger.info(f"Tokenizer vocab size: {tokenizer.vocab_size}")
+    logger.info(f"Model vocab size: {model.config.vocab_size}")
     for epoch in range(args.num_train_epochs):
         model.train()
         for step, batch in enumerate(train_dataloader):
-            inputs = {'input_ids': batch[0],
-                      'attention_mask': batch[1],
-                      'token_type_ids': batch[2],
-                      'labels': batch[3]}
+            if "roberta" in args.model_type:
+                inputs = {'input_ids': batch[0],
+                        'attention_mask': batch[1],
+                        'labels': batch[3]}
+            else:
+                inputs = {'input_ids': batch[0],
+                        'attention_mask': batch[1],
+                        'token_type_ids': batch[2],
+                        'labels': batch[3]}
+            
+            '''
+            logger.info(f"input_ids: {inputs['input_ids'].shape}")
+            logger.info(f"mask: {inputs['attention_mask'].shape}")
+            logger.info(f"token_type: {inputs['token_type_ids'].shape}")
+            logger.info(f"labels: {inputs['labels'].shape}")
+
+
+
+            logger.info("MAXIMUM VALUES:")
+            logger.info(f"max input_ids: {torch.max(inputs['input_ids'])}")
+            logger.info(f"max mask: {torch.max(inputs['attention_mask'])}")
+            logger.info(f"max token_type: {torch.max(inputs['token_type_ids'])}")
+            logger.info(f"max labels: {torch.max(inputs['labels'])}")
+
+
+            logger.info("ACTUAL VALUES:")
+            logger.info(f"actual input_ids: {inputs['input_ids']}")
+            logger.info(f"actual mask: {inputs['attention_mask']}")
+            logger.info(f"actual token_type: {inputs['token_type_ids']}")
+            logger.info(f"actual labels: {inputs['labels']}")
+            '''
+
+
+            
+      
             outputs = model(**inputs)
             loss = outputs.loss
             loss = loss / args.gradient_accumulation_steps
