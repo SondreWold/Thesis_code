@@ -702,10 +702,15 @@ def main():
         model.eval()
         for step, batch in enumerate(eval_dataloader):
             with torch.no_grad():
-                inputs = {'input_ids': batch[0],
-                          'attention_mask': batch[1],
-                          'token_type_ids': batch[2],
-                          'labels': batch[3]}
+                if "roberta" in args.model_type:
+                    inputs = {'input_ids': batch[0],
+                            'attention_mask': batch[1],
+                            'labels': batch[3]}
+                else:
+                    inputs = {'input_ids': batch[0],
+                            'attention_mask': batch[1],
+                            'token_type_ids': batch[2],
+                            'labels': batch[3]}
                 outputs = model(**inputs)
             predictions = outputs.logits.argmax(dim=-1)
             metric.add_batch(
