@@ -375,6 +375,7 @@ def main():
     # ADAPTER SETUP
     logger.info(
         f"Adapter training set to True. Adding module with name: {args.adapter_name}")
+        
     # check if adapter already exists, otherwise add it
     if args.adapter_name not in model.config.adapters:
         # resolve the adapter config
@@ -608,7 +609,7 @@ def main():
         unwrapped_model = accelerator.unwrap_model(model)
         if args.only_save_adapter:
             logger.info("Saving only the adapter module..")
-            unwrapped_model.save_adapter("./adapters/" + args.single_adapter_path, args.adapter_name)
+            unwrapped_model.save_adapter("./adapters/" + args.single_adapter_path, args.adapter_name, with_head=False)
         else:
             logger.info("Saving the entire model + any adapters present in config.")
             unwrapped_model.save_pretrained(
