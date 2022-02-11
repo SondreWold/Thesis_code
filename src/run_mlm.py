@@ -379,7 +379,7 @@ def main():
     if args.train_fusion:
         logger.info("Adapter fusion training activated")
         adapters = args.adapter_list
-        adapter_names = [x.split("/")[0] for x in adapters]
+        adapter_names = [x.split("/")[1] for x in adapters]
         for adapter in adapters:
             logger.info("Loading adapter: {adapter}")
             model.load_adapter(adapter, with_head=False)
@@ -387,7 +387,7 @@ def main():
         model.add_adapter_fusion(Fuse(*adapter_names))
         model.set_active_adapters(Fuse(*adapter_names))
         model.train_adapter_fusion(Fuse(*adapter_names))
-    else:
+    else:   
 
         # ADAPTER SETUP
         logger.info(
