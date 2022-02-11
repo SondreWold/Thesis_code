@@ -44,6 +44,7 @@ from transformers import (
     get_scheduler,
     set_seed,
 )
+from transformers.adapters.composition import Fuse
 
 
 logger = logging.getLogger(__name__)
@@ -232,12 +233,15 @@ def parse_args():
         help="Trains the fusion layer and saves the entire thing",
     )
 
+    parser.add_argument('--adapter_list', nargs='+', default=[], help="Path to Adapters to add to fusion layer")
+
     parser.add_argument(
         "--tune_all_parameters",
         type=bool,
         default=False,
         help="Keep the original transformer parameters open. Tune everything, included the adapter, on the mlm objective.",
     )
+
 
     args = parser.parse_args()
 
@@ -372,27 +376,40 @@ def main():
 
     model.resize_token_embeddings(len(tokenizer))
 
-    # ADAPTER SETUP
-    logger.info(
-        f"Adapter training set to True. Adding module with name: {args.adapter_name}")
-        
-    # check if adapter already exists, otherwise add it
-    if args.adapter_name not in model.config.adapters:
-        # resolve the adapter config
-        logger.info(
-            f"Initializing adapter with architecture: {args.adapter_config}")
-        adapter_config = AdapterConfig.load(
-            args.adapter_config, non_linearity=args.non_linearity, reduction_factor=args.reduction_factor
-        )
-        model.add_adapter(args.adapter_name, config=adapter_config)
+    if args.train_fusion:
+        logger.info("Adapter fusion training activated")
+        adapters = args.adapter_list
+        adapter_names = [x.split("/")[0] for x in adapters]
+        for adapter in adapters:
+            logger.info("Loading adapter: {adapter}")
+            model.load_adapter(adapter, with_head=False)
+        logger.info(f"Adding and activating fusion layer")
+        model.add_adapter_fusion(Fuse(*adapter_names))
+        model.set_active_adapters(Fuse(*adapter_names))
+        model.train_adapter_fusion(Fuse(*adapter_names))
     else:
-        logger.info(
-            "There is already an adapter module in the model with the same name.")
 
-    # Freeze all transformer weights except of those of the added adapter
-    logger.info("Activate adapter")
-    model.train_adapter([args.adapter_name])
-    model.set_active_adapters(args.adapter_name)
+        # ADAPTER SETUP
+        logger.info(
+            f"Normal Adapter training set to True. Adding module with name: {args.adapter_name}")
+            
+        # check if adapter already exists, otherwise add it
+        if args.adapter_name not in model.config.adapters:
+            # resolve the adapter config
+            logger.info(
+                f"Initializing adapter with architecture: {args.adapter_config}")
+            adapter_config = AdapterConfig.load(
+                args.adapter_config, non_linearity=args.non_linearity, reduction_factor=args.reduction_factor
+            )
+            model.add_adapter(args.adapter_name, config=adapter_config)
+        else:
+            logger.info(
+                "There is already an adapter module in the model with the same name.")
+
+        # Freeze all transformer weights except of those of the added adapter
+        logger.info("Activate ST adapter")
+        model.train_adapter([args.adapter_name])
+        model.set_active_adapters(args.adapter_name)
 
     if args.tune_all_parameters == True:
         logger.info("Opening normal transformer weights...")
