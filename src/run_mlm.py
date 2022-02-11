@@ -214,6 +214,25 @@ def parse_args():
     )
 
     parser.add_argument(
+        "--only_save_adapter",
+        action="store_true",
+        help="Only saves the adapter module, not the whole model",
+    )
+
+    parser.add_argument(
+        "--single_adapter_path",
+        type=str,
+        default="not_defined",
+        help="The path of the single task adapter to be saved",
+    )
+
+    parser.add_argument(
+        "--train_fusion",
+        action="store_true",
+        help="Trains the fusion layer and saves the entire thing",
+    )
+
+    parser.add_argument(
         "--tune_all_parameters",
         type=bool,
         default=False,
@@ -244,6 +263,12 @@ def parse_args():
 
 def main():
     args = parse_args()
+
+    #Sanity checks
+    if args.only_save_adapter:
+        assert args.single_adapter_path != "not_defined"
+        assert not args.train_fusion
+
 
     # Initialize the accelerator. We will let the accelerator handle device placement for us in this example.
     accelerator = Accelerator()
@@ -581,10 +606,14 @@ def main():
         logger.info("Saving model")
         accelerator.wait_for_everyone()
         unwrapped_model = accelerator.unwrap_model(model)
-        unwrapped_model.save_pretrained(
-            args.output_dir, save_function=accelerator.save)
-        unwrapped_model.save_adapter(
-            args.output_dir + "/adapters/", args.adapter_name)
+        if args.only_save_adapter:
+            logger.info("Saving only the adapter module..")
+            unwrapped_model.save_adapter("./adapters/" + args.single_adapter_path, args.adapter_name)
+        else:
+            logger.info("Saving the entire model + any adapters present in config.")
+            unwrapped_model.save_pretrained(
+                args.output_dir, save_function=accelerator.save)
+
 
 
 if __name__ == "__main__":
