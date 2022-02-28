@@ -46,12 +46,11 @@ def chunks(lst, n):
   for i in range(0, len(lst), n):
     yield lst[i:i + n]
 
-def generate_corpus_from_walks(walks, output_path_prefix="../data/concept_net/randomwalks/rw_corpus_", output_path_suffix=""):
+def generate_corpus_from_walks(walks, output_path):
   # how do we actually want to generate the corpus?
   # one option is to always dublicate the node in the middle..
   # also Goran says that we want to keep the relations as separate tokens in the vocab. I do not necessarily agree with this, but we try.
   # What is one document? Is is always one walk? Maybe yes...
-  output_path = output_path_prefix + output_path_suffix + ".txt"
   text = ""
   print('size of walks', len(walks))
   print('processing RWs...')
@@ -77,10 +76,19 @@ def generate_corpus_from_walks(walks, output_path_prefix="../data/concept_net/ra
 
 
 def main():
-  in_prefix = "./random_walk_"
+  pickled_root = "../data/concept_net/"
+  paths = ["isA", "atLocation", "usedFor"]
+  output = "../data/concept_net/predicate_pre/corpora/"
+  in_prefix = "random_walk_"
   in_suffix = "1.0_1.0_2_15"
-  walks = load_walks(in_prefix + in_suffix + ".p")
-  generate_corpus_from_walks(walks, output_path_suffix=in_suffix + "_nl")
+  '''
+  for path in paths:
+    walks = load_walks(pickled_root + path + "/" + in_prefix + in_suffix + ".p")
+    generate_corpus_from_walks(walks, output_path=output+path+"/"+"corpus.txt")
+  '''
+
+  walks = load_walks(pickled_root + in_prefix + in_suffix + ".p")
+  generate_corpus_from_walks(walks, output_path=pickled_root + "fusion_corpus_complete.txt")
 
 
 if __name__=="__main__":

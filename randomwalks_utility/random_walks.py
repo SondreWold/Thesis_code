@@ -247,9 +247,16 @@ def load_random_walk(p):
   return walk
 
 def main():
-  path = "./test.txt"
-  output_folder = "."
-  generate_random_walks_from_assertions(path=path, output_folder=output_folder)
+  root = "../data/concept_net/predicate_pre/"
+  paths = ["isA", "atLocation", "usedFor"]
+  output_folder = root + "pickles/"
+  '''
+  for path in paths:
+    generate_random_walks_from_assertions(path=root + path + "_base.txt", output_folder=output_folder + path)
+  '''
+  path = "../data/concept_net/fusion_test_corpus.txt"
+  generate_random_walks_from_assertions(path=path, output_folder="../data/concept_net/")
+
   #analyze_graph(path)
   # load_random_walk(p="./randomwalks/random_walk_1.0_1.0_2_10.p")
 

@@ -1,5 +1,5 @@
-MODEL="distilbert-base-uncased" #No trailing / !!
-TOKENIZER="distilbert-base-uncased"
+MODEL="roberta-base" #No trailing / !!
+TOKENIZER="roberta-base"
 ADAPTER=$MODEL/adapters/
 
 DATASET_NAME=swag
@@ -9,9 +9,6 @@ python src/run_swag.py \
   --tokenizer_name $TOKENIZER \
   --dataset_name $DATASET_NAME \
   --max_length 128 \
-  --adapter_name "mlm_houlsby" \
-  --adapter_path $ADAPTER \
-  --tune_both = True \
-  --per_device_train_batch_size 32 \
+  --per_device_train_batch_size 1 \
   --learning_rate 3e-5 \
   --num_train_epochs 3 \

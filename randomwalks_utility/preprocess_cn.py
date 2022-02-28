@@ -1,5 +1,11 @@
 import codecs
 
+fusion_attempt_1 = {
+  "usedFor": "is used for",
+  "isA": "is a",
+  "atLocation": "is at",
+}
+
 default_dict = {
   "antonyms": "is an antonym of",
   "isA": "is a",
@@ -80,9 +86,17 @@ def create_joined_assertions_for_random_walks(paths=[], relation_dict = default_
 
 
 def main():
-  paths = [f"../data/concept_net/relations/cn_{x}.txt" for x in LAMA_relations]
-  relation_dict = LAMA_dict
-  create_joined_assertions_for_random_walks(paths=paths, relation_dict=relation_dict, output_path="./test2.txt")
+  '''
+  for key, value in fusion_attempt_1.items():
+    paths = [f"../data/concept_net/relations/cn_{key}.txt"]
+    relation_dict = {key: value}
+    create_joined_assertions_for_random_walks(paths=paths, relation_dict=relation_dict, output_path="../data/concept_net/predicate_pre/" + key + "_base.txt" )  
+  '''
+  paths = [f"../data/concept_net/relations/cn_{x}.txt" for x in fusion_attempt_1.keys()]
+  relation_dict = fusion_attempt_1
+  create_joined_assertions_for_random_walks(paths=paths, relation_dict=relation_dict, output_path="../data/concept_net/fusion_test_corpus.txt")
+  
+
 
 if __name__ == "__main__":
   main()

@@ -196,6 +196,24 @@ def parse_args():
         action="store_true",
         help="Activate debug mode and run training only with a subset of data.",
     )
+
+
+    parser.add_argument(
+        "--use_fusion",
+        action="store_true",
+        help="Activate fusion layer",
+    )
+
+    parser.add_argument(
+        "--fusion_name",
+        type=str,
+        defualt=None,
+        help="name of the fusion layer",
+    )
+
+    parser.add_argument('--adapter_list', nargs='+', default=[], help="Path to Adapters to add to fusion layer")
+
+
     parser.add_argument("--push_to_hub", action="store_true",
                         help="Whether or not to push the model to the Hub.")
     parser.add_argument(
@@ -383,10 +401,6 @@ def main():
     else:
         logger.info("Training new model from scratch")
         model = AutoModelForMultipleChoice.from_config(config)
-
-    if args.adapter_path:
-        logging.info(f"Loading adapter from path {args.adapter_path}")
-        model.load_adapter(args.adapter_path)
 
     if args.tune_both:
         logger.info("Setting: tuning both activated")

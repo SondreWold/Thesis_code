@@ -9,6 +9,8 @@ from transformers import pipeline, Pipeline, AutoConfig, AutoTokenizer, AutoMode
 logger = logging.getLogger(__name__)
 from datasets import load_dataset
 import string
+from transformers.adapters.composition import Fuse
+
 
 def evaluate_lama(model, data, at_k, relations=[], is_logging=False):
     '''
@@ -60,6 +62,7 @@ def main():
     parse.add_argument("--tokenizer_name", type=str, default="bert-base-uncased")
     parse.add_argument("--use_adapter", action='store_true')
     parse.add_argument('--full_eval', action='store_true')
+    parse.add_argument('--use_fusion', action='store_true')
     parse.add_argument('--relations', nargs='*', default=[])
 
     args = parse.parse_args()
@@ -85,7 +88,14 @@ def main():
     adapter_flag = "adapter" if args.use_adapter else "normal"
     if args.use_adapter:
         logger.info("Load Adapter model")
-        base_model.set_active_adapters([args.adapter_name])
+        if args.use_fusion:
+            fusion_setup = Fuse(*base_model.config.adapters.adapters.keys())
+            logger.info("Adapter fusion mode set.")
+            base_model.set_active_adapters(fusion_setup)
+            base_model.train_adapter_fusion(fusion_setup)
+        else:
+            logger.info("ST-Adapter mode set.")
+            base_model.set_active_adapters([args.adapter_name])
         base_model.freeze_model(False)
 
     if args.full_eval:
