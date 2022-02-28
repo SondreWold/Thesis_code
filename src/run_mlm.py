@@ -634,7 +634,6 @@ def main():
         elif args.train_fusion:
             logger.info("Save adapters and adapter fusion layer")
             assert adapter_fusion_object is not None
-            unwrapped_model.save_adapter("./adapters/" + args.single_adapter_path, args.adapter_name, with_head=False)
             unwrapped_model.save_adapter_fusion("./adapters/" + "fusion/", adapter_fusion_object, with_head=False)
         else:
             logger.info("Saving the entire model + any adapters present in config.")
