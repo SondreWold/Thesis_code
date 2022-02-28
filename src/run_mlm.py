@@ -376,6 +376,8 @@ def main():
 
     model.resize_token_embeddings(len(tokenizer))
 
+    adapter_fusion_object = None
+
     if args.train_fusion:
         logger.info("Adapter fusion training activated")
         adapters = args.adapter_list
@@ -384,9 +386,11 @@ def main():
             logger.info("Loading adapter: {adapter}")
             model.load_adapter(adapter, with_head=False)
         logger.info(f"Adding and activating fusion layer")
-        model.add_adapter_fusion(Fuse(*adapter_names))
-        model.set_active_adapters(Fuse(*adapter_names))
-        model.train_adapter_fusion(Fuse(*adapter_names))
+        obj = Fuse(*adapter_names)
+        model.add_adapter_fusion(obj)
+        model.set_active_adapters(obj)
+        model.train_adapter_fusion(obj)
+        adapter_fusion_object = obj
     else:   
 
         # ADAPTER SETUP
@@ -627,6 +631,11 @@ def main():
         if args.only_save_adapter:
             logger.info("Saving only the adapter module..")
             unwrapped_model.save_adapter("./adapters/" + args.single_adapter_path, args.adapter_name, with_head=False)
+        elif args.train_fusion:
+            logger.info("Save adapters and adapter fusion layer")
+            assert adapter_fusion_object is not None
+            unwrapped_model.save_adapter("./adapters/" + args.single_adapter_path, args.adapter_name, with_head=False)
+            unwrapped_model.save_adapter_fusion("./adapters/" + "fusion/", adapter_fusion_object, with_head=False)
         else:
             logger.info("Saving the entire model + any adapters present in config.")
             unwrapped_model.save_pretrained(
