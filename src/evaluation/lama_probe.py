@@ -95,10 +95,10 @@ def main():
             logger.info("Using AdapterFusion setup")
             adapters = args.adapter_list
             for adapter in adapters:
-                logger.info("Loading adapter: {adapter}")
-                model.load_adapter(adapter, with_head=False, set_active=True)
+                logger.info(f"Loading adapter: {adapter}")
+                base_model.load_adapter(adapter, with_head=False, set_active=True)
             logger.info(f"Loading Fusion layer from path: {args.adapter_fusion_path}")
-            model.load_adapter_fusion(args.adapter_fusion_path, set_active=True)
+            base_model.load_adapter_fusion(args.adapter_fusion_path, set_active=True)
         else:
             logger.info("ST-Adapter mode set.")
             base_model.set_active_adapters([args.adapter_name])

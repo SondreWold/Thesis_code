@@ -383,7 +383,7 @@ def main():
         adapters = args.adapter_list
         adapter_names = [x.split("/")[2] for x in adapters]
         for adapter in adapters:
-            logger.info("Loading adapter: {adapter}")
+            logger.info(f"Loading adapter: {adapter}")
             model.load_adapter(adapter, with_head=False)
         logger.info(f"Adding and activating fusion layer")
         obj = Fuse(*adapter_names)
