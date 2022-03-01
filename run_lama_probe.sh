@@ -1,4 +1,4 @@
-MODEL="./models/fusion_test/fusion_test" #No trailing / !!
+MODEL="bert-base-uncased" #No trailing / !!
 TOKENIZER="bert-base-uncased"
 
 python src/evaluation/lama_probe.py \
@@ -7,4 +7,6 @@ python src/evaluation/lama_probe.py \
   --relations IsA UsedFor AtLocation \
   --use_adapter \
   --use_fusion \
-  --at_k 5
+  --adapter_fusion_path "./adapters/fusion" \
+  --adapter_list "./adapters/isA/" "./adapters/usedFor/" "./adapters/atLocation/" \
+  --full_eval

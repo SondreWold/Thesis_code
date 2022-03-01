@@ -59,11 +59,14 @@ def main():
     parse.add_argument("--lama_path", type=str, default=None)
     parse.add_argument("--at_k", type=int, default=5)
     parse.add_argument("--adapter_name", type=str, default=None)
+    parse.add_argument("--adapter_fusion_path", type=str, default=None)
     parse.add_argument("--tokenizer_name", type=str, default="bert-base-uncased")
     parse.add_argument("--use_adapter", action='store_true')
     parse.add_argument('--full_eval', action='store_true')
     parse.add_argument('--use_fusion', action='store_true')
     parse.add_argument('--relations', nargs='*', default=[])
+    parse.add_argument('--adapter_list', nargs='+', default=[], help="Path to Adapters to add to fusion layer")
+
 
     args = parse.parse_args()
 
@@ -89,10 +92,13 @@ def main():
     if args.use_adapter:
         logger.info("Load Adapter model")
         if args.use_fusion:
-            fusion_setup = Fuse(*base_model.config.adapters.adapters.keys())
-            logger.info("Adapter fusion mode set.")
-            base_model.set_active_adapters(fusion_setup)
-            base_model.train_adapter_fusion(fusion_setup)
+            logger.info("Using AdapterFusion setup")
+            adapters = args.adapter_list
+            for adapter in adapters:
+                logger.info("Loading adapter: {adapter}")
+                model.load_adapter(adapter, with_head=False, set_active=True)
+            logger.info(f"Loading Fusion layer from path: {args.adapter_fusion_path}")
+            model.load_adapter_fusion(args.adapter_fusion_path, set_active=True)
         else:
             logger.info("ST-Adapter mode set.")
             base_model.set_active_adapters([args.adapter_name])
