@@ -86,15 +86,17 @@ def create_joined_assertions_for_random_walks(paths=[], relation_dict = default_
 
 
 def main():
-  '''
-  for key, value in fusion_attempt_1.items():
+  for key, value in LAMA_dict.items():
     paths = [f"../data/concept_net/relations/cn_{key}.txt"]
+    if key in ["atLocation", "usedfor", "isA"]:
+      print("Skip")
+      continue
     relation_dict = {key: value}
     create_joined_assertions_for_random_walks(paths=paths, relation_dict=relation_dict, output_path="../data/concept_net/predicate_pre/" + key + "_base.txt" )  
-  '''
-  paths = [f"../data/concept_net/relations/cn_{x}.txt" for x in fusion_attempt_1.keys()]
-  relation_dict = fusion_attempt_1
-  create_joined_assertions_for_random_walks(paths=paths, relation_dict=relation_dict, output_path="../data/concept_net/fusion_test_corpus.txt")
+
+  #paths = [f"../data/concept_net/relations/cn_{x}.txt" for x in fusion_attempt_1.keys()]
+  #relation_dict = fusion_attempt_1
+  #create_joined_assertions_for_random_walks(paths=paths, relation_dict=relation_dict, output_path="../data/concept_net/fusion_test_corpus.txt")
   
 
 

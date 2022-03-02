@@ -1,7 +1,28 @@
 import pickle
 import codecs
 from tqdm import tqdm
+import os
 from concurrent.futures import ProcessPoolExecutor, as_completed
+
+
+LAMA_relations = [
+  "atLocation",
+  "capableOf",
+  "causes",
+  "causesDesire",
+  "desires",
+  "hasA",
+  "hasPrerequisite",
+  "hasProperty",
+  "hasSubevent",
+  "isA",
+  "locatedNear",
+  "madeOf",
+  "motivatedByGoal",
+  "partOf",
+  "receivesAction",
+  "usedFor"
+]
 
 def load_walks(path="../data/concept_net/randomwalks/random_walk_1.0_1.0_2_10.p"):
   return pickle.load(open(path, "rb"))
@@ -12,6 +33,7 @@ def create_relationship_token(text):
   return text #"<" + "".join(text.split(" ")) + ">"
 
 def process_walks(walks):
+  print(walks[1])
   text = ""
   for walk in walks:
     previous_token = ""
@@ -38,7 +60,6 @@ def process_walks(walks):
       elif i % 1 == 0:
         text = text + create_relationship_token(token) + " "
       previous_token = token
-
   return text
 
 def chunks(lst, n):
@@ -58,6 +79,7 @@ def generate_corpus_from_walks(walks, output_path):
   workers = 10
   splits = 1000
   text = ""
+
   with ProcessPoolExecutor(max_workers=workers) as executor:
     futures = {}
     for i, ws in enumerate(chunks(walks, splits)):
@@ -69,26 +91,26 @@ def generate_corpus_from_walks(walks, output_path):
         text += t
         r = futures[job]
         del futures[job]
-
-
+ 
+  os.makedirs(os.path.dirname(output_path), exist_ok=True)
   with codecs.open(output_path, "w", "utf8") as out:
     out.write(text)
 
 
 def main():
-  pickled_root = "../data/concept_net/"
-  paths = ["isA", "atLocation", "usedFor"]
+  pickled_root = "../data/concept_net/predicate_pre/pickles/"
+  paths = ["isA"]
   output = "../data/concept_net/predicate_pre/corpora/"
   in_prefix = "random_walk_"
   in_suffix = "1.0_1.0_2_15"
-  '''
+
   for path in paths:
     walks = load_walks(pickled_root + path + "/" + in_prefix + in_suffix + ".p")
     generate_corpus_from_walks(walks, output_path=output+path+"/"+"corpus.txt")
-  '''
 
-  walks = load_walks(pickled_root + in_prefix + in_suffix + ".p")
-  generate_corpus_from_walks(walks, output_path=pickled_root + "fusion_corpus_complete.txt")
+
+  #walks = load_walks(pickled_root + in_prefix + in_suffix + ".p")
+  #generate_corpus_from_walks(walks, output_path=pickled_root + "fusion_corpus_complete.txt")
 
 
 if __name__=="__main__":

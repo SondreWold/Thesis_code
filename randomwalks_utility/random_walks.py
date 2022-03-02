@@ -2,6 +2,26 @@ import numpy as np
 import networkx as nx
 import random
 import pickle
+import os
+
+LAMA_relations = [
+  "atLocation",
+  "capableOf",
+  "causes",
+  "causesDesire",
+  "desires",
+  "hasA",
+  "hasPrerequisite",
+  "hasProperty",
+  "hasSubevent",
+  "isA",
+  "locatedNear",
+  "madeOf",
+  "motivatedByGoal",
+  "partOf",
+  "receivesAction",
+  "usedFor"
+] 
 
 def read_graph(path):
   '''
@@ -203,6 +223,7 @@ def generate_random_walks_from_assertions(path, output_folder):
   G.preprocess_transition_probs()
   walks = G.simulate_walks(num_walks, walk_length)
   filename = output_folder + "/random_walk_" + str(p) + "_" + str(q) + "_" + str(num_walks) + "_" + str(walk_length) + ".p"
+  os.makedirs(os.path.dirname(filename), exist_ok=True)
   with open(filename, 'wb') as handle:
     pickle.dump(walks, handle)
   print(len(walks))
@@ -248,14 +269,14 @@ def load_random_walk(p):
 
 def main():
   root = "../data/concept_net/predicate_pre/"
-  paths = ["isA", "atLocation", "usedFor"]
+  paths = LAMA_relations
   output_folder = root + "pickles/"
-  '''
+  
   for path in paths:
     generate_random_walks_from_assertions(path=root + path + "_base.txt", output_folder=output_folder + path)
-  '''
-  path = "../data/concept_net/fusion_test_corpus.txt"
-  generate_random_walks_from_assertions(path=path, output_folder="../data/concept_net/")
+  
+  #path = "../data/concept_net/fusion_test_corpus.txt"
+  #generate_random_walks_from_assertions(path=path, output_folder="../data/concept_net/")
 
   #analyze_graph(path)
   # load_random_walk(p="./randomwalks/random_walk_1.0_1.0_2_10.p")
