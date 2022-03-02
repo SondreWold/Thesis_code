@@ -1,0 +1,4 @@
+Results for model loaded from path bert-base-uncased with tokenizer: bert-base-uncased 
+Precision@1: 0.1980105688529686 
+Precision@10: 0.49984457569163815 
+Precision@100: 0.7336027354678272 

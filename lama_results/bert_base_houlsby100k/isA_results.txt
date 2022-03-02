@@ -1,0 +1,4 @@
+Results for model loaded from path ./models/houlsby_original_uncased with tokenizer: bert-base-uncased 
+Precision@1: 0.20951196767174385 
+Precision@10: 0.5116568231271371 
+Precision@100: 0.7668635374572583 

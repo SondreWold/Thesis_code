@@ -1,5 +1,5 @@
-TRAIN_FILE="./data/concept_net/corpus.txt"
-VAL_FILE="./data/concept_net/corpus_val.txt"
+TRAIN_FILE="./data/concept_net/fusion_train.txt"
+VAL_FILE="./data/concept_net/fusion_val.txt"
 TOKENIZER="bert-base-uncased"
 MODEL_TYPE="bert-base-uncased"
 TRAINING_FOLDER="./src"
@@ -10,11 +10,11 @@ python $TRAINING_FOLDER/run_mlm.py \
     --train_file $TRAIN_FILE \
     --validation_file $VAL_FILE \
     --output_dir $OUTPUT_DIR \
-    --pad_to_max_length \
     --line_by_line True \
-    --adapter_name "mlm_houlsby_og" \
+    --train_fusion \
     --adapter_config "houlsby" \
     --non_linearity "gelu" \
     --reduction_factor 12      \
     --num_warmup_steps 10000 \
     --max_train_steps 100000 \
+    --adapter_list "./adapters/isA/" "./adapters/usedFor/" "./adapters/atLocation/"

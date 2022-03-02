@@ -1,0 +1,4 @@
+Results for model loaded from path ./models/roberta_houlsby with tokenizer: roberta-base 
+Precision@1: 0.23562628336755648 
+Precision@10: 0.5913757700205339 
+Precision@100: 0.9594455852156057 

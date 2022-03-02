@@ -7,7 +7,7 @@ __pycache__/
 #Project related files
 data/
 *.bin
-
+slurm_logs/
 
 # C extensions
 *.so
