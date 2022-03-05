@@ -20,10 +20,11 @@ This script is a modifyed version of the original Huggingface mlm.py script, wit
 
 import argparse
 import logging
+import copy
 import math
+from torch import nn
 import os
 import random
-
 import datasets
 import torch
 from datasets import load_dataset
@@ -45,7 +46,6 @@ from transformers import (
     set_seed,
 )
 from transformers.adapters.composition import Fuse
-from utils import adapter_drop
 
 
 logger = logging.getLogger(__name__)
@@ -272,6 +272,25 @@ def parse_args():
         os.makedirs(args.output_dir, exist_ok=True)
 
     return args
+
+
+def adapter_drop(old_model: nn.Module, adapters_to_prune=[1,3,5,7,10], logger=None) -> nn.Module:
+    '''
+    Takes a transformer model with an injected adapter setup and prune the models from specified layers.
+        input:
+            old_model(nn.Module): the model to prune layers from
+            adapters_to_prune(List[Int]: The index of the layers to prune adapters from.
+            logger (logging): logger module, injected
+        returns:
+            new_model: the pruned model.
+    '''
+    new_model = copy.deepcopy(old_model)
+    for layer in adapters_to_prune:
+        if logger:
+            logger.info(f"Pruning from layer {layer}")
+        new_model.base_model.encoder.layer[layer].output.adapters = nn.ModuleDict()
+        new_model.base_model.encoder.layer[layer].attention.output.adapters = nn.ModuleDict()
+    return new_model
 
 
 def main():
