@@ -45,6 +45,7 @@ from transformers import (
     set_seed,
 )
 from transformers.adapters.composition import Fuse
+from utils import adapter_drop
 
 
 logger = logging.getLogger(__name__)
@@ -233,6 +234,14 @@ def parse_args():
         help="Trains the fusion layer and saves the entire thing",
     )
 
+    parser.add_argument(
+        "--adapter_drop",
+        action="store_true",
+        help="Activates adapter pruning.",
+    )
+
+
+    parser.add_argument('--drop_list', nargs='+', default=None, help="List of transformer layers to prune adapters from")
     parser.add_argument('--adapter_list', nargs='+', default=[], help="Path to Adapters to add to fusion layer")
 
     parser.add_argument(
@@ -272,6 +281,9 @@ def main():
     if args.only_save_adapter:
         assert args.single_adapter_path != "not_defined"
         assert not args.train_fusion
+    if args.adapter_drop:
+        assert not args.train_fusion
+        assert args.drop_list
 
 
     # Initialize the accelerator. We will let the accelerator handle device placement for us in this example.
@@ -392,7 +404,6 @@ def main():
         model.train_adapter_fusion(obj)
         adapter_fusion_object = adapter_names
     else:   
-
         # ADAPTER SETUP
         logger.info(
             f"Normal Adapter training set to True. Adding module with name: {args.adapter_name}")
@@ -412,6 +423,11 @@ def main():
 
         # Freeze all transformer weights except of those of the added adapter
         logger.info("Activate ST adapter")
+
+        if args.adapter_drop:
+            logger.info(f"Adapter drop activated: Pruning modules from layers with index {[i for i in args.drop_list]}")
+            model = adapter_drop(model, adapters_to_prune=args.drop_list, logger=logger)
+
         model.train_adapter([args.adapter_name])
         model.set_active_adapters(args.adapter_name)
 
@@ -635,12 +651,12 @@ def main():
             logger.info("Save adapters and adapter fusion layer")
             assert adapter_fusion_object is not None
             unwrapped_model.save_adapter_fusion("./adapters/" + "fusion/",  ",".join(adapter_fusion_object))
+            logger.info("Also saving entire model at output dir path as a backup")
+            unwrapped_model.save_pretrained(args.output_dir, save_function=accelerator.save)
         else:
             logger.info("Saving the entire model + any adapters present in config.")
             unwrapped_model.save_pretrained(
                 args.output_dir, save_function=accelerator.save)
-
-
 
 if __name__ == "__main__":
     main()
