@@ -286,6 +286,7 @@ def adapter_drop(old_model: nn.Module, adapters_to_prune=[1,3,5,7,10], logger=No
     '''
     new_model = copy.deepcopy(old_model)
     for layer in adapters_to_prune:
+        layer = int(layer)
         if logger:
             logger.info(f"Pruning from layer {layer}")
         new_model.base_model.encoder.layer[layer].output.adapters = nn.ModuleDict()
