@@ -9,6 +9,7 @@ from transformers import pipeline, Pipeline, AutoConfig, AutoTokenizer, AutoMode
 logger = logging.getLogger(__name__)
 from datasets import load_dataset
 import string
+import numpy as np
 from transformers.adapters.composition import Fuse
 
 
@@ -64,6 +65,7 @@ def main():
     parse.add_argument("--use_adapter", action='store_true')
     parse.add_argument('--full_eval', action='store_true')
     parse.add_argument('--use_fusion', action='store_true')
+    parse.add_argument('--micro', action='store_true')
     parse.add_argument('--relations', nargs='*', default=[])
     parse.add_argument('--adapter_list', nargs='+', default=[], help="Path to Adapters to add to fusion layer")
 
@@ -118,11 +120,26 @@ def main():
             for key, value in results.items():
                 f.write(f"Precision@{key}: {value} \n")
                 
+    # Micro-averaged accuracy
+    elif args.micro:
+        results = {}
+        model = pipeline("fill-mask", model=base_model,
+                        tokenizer=tokenizer, device=device, top_k=1)
+        for relation in args.relations:
+            accuracy = evaluate_lama(model, data, 1, [relation])
+            results[relation] = accuracy
+        
+        logger.info(results)
+        logger.info(f"Micro-averaged accuracy: {np.mean(list(results.values()))}")
+    
     else:
         model = pipeline("fill-mask", model=base_model,
                         tokenizer=tokenizer, device=device, top_k=args.at_k)
         mean_p_at_k = evaluate_lama(model, data, args.at_k, args.relations)
         logger.info(f"Precision for model @{args.at_k} was {mean_p_at_k}")
+
+
+
 
 if __name__ == '__main__':
     main()
