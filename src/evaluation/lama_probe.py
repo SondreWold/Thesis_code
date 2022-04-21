@@ -41,6 +41,8 @@ def evaluate_lama(model, data, at_k, relations=[], is_logging=False):
             if is_logging: logger.info(f"Prediction was {pred['token_str']}")
             if pred["token_str"].strip().lower() == correct:
                 points += 1
+    if len(relations) == 1:
+        logger.info(f"Relation was {relations[0]} with {n} samples")
     return points/n
 
 def read_jsonl_file(filename: str) -> List[Dict]:
