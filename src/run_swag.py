@@ -198,21 +198,6 @@ def parse_args():
     )
 
 
-    parser.add_argument(
-        "--use_fusion",
-        action="store_true",
-        help="Activate fusion layer",
-    )
-
-    parser.add_argument(
-        "--fusion_name",
-        type=str,
-        defualt=None,
-        help="name of the fusion layer",
-    )
-
-    parser.add_argument('--adapter_list', nargs='+', default=[], help="Path to Adapters to add to fusion layer")
-
 
     parser.add_argument("--push_to_hub", action="store_true",
                         help="Whether or not to push the model to the Hub.")
