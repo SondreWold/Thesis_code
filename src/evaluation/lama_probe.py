@@ -20,6 +20,7 @@ def evaluate_lama(model, data, at_k, relations=[], is_logging=False):
     '''
     points = 0
     n = len(data)
+    oov_words = 0
     logger.info(f"Relations specified: {relations}")
     for line in tqdm(data):
         if relations:
@@ -31,6 +32,7 @@ def evaluate_lama(model, data, at_k, relations=[], is_logging=False):
         obj_label_id = model.tokenizer.vocab.get(correct)
         if obj_label_id is None:
             n -= 1
+            oov_words += 1
             continue
         sentence = line["masked_sentence"].replace("[MASK]", "<mask>") if "roberta" in model.model.config.name_or_path else line["masked_sentence"]
         if is_logging:
@@ -42,7 +44,7 @@ def evaluate_lama(model, data, at_k, relations=[], is_logging=False):
             if pred["token_str"].strip().lower() == correct:
                 points += 1
     if len(relations) == 1:
-        logger.info(f"Relation was {relations[0]} with {n} samples")
+        logger.info(f"Relation was {relations[0]} with {n} samples, removed {oov_words} OOV words.")
     return points/n
 
 def read_jsonl_file(filename: str) -> List[Dict]:
@@ -124,15 +126,16 @@ def main():
                 
     # Micro-averaged accuracy
     elif args.micro:
+        logger.info(f"Calculating micro averages for k={args.at_k}")
         results = {}
         model = pipeline("fill-mask", model=base_model,
-                        tokenizer=tokenizer, device=device, top_k=1)
+                        tokenizer=tokenizer, device=device, top_k=args.at_k)
         for relation in args.relations:
-            accuracy = evaluate_lama(model, data, 1, [relation])
+            accuracy = evaluate_lama(model, data, args.at_k, [relation])
             results[relation] = accuracy
         
         logger.info(results)
-        logger.info(f"Micro-averaged accuracy: {np.mean(list(results.values()))}")
+        logger.info(f"Micro-averaged accuracy for k {args.at_k}: {np.mean(list(results.values()))}")
     
     else:
         model = pipeline("fill-mask", model=base_model,
