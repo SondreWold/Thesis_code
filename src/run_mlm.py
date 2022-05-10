@@ -46,6 +46,7 @@ from transformers import (
     set_seed,
 )
 from transformers.adapters.composition import Fuse
+from torch.utils.tensorboard import SummaryWriter
 
 
 logger = logging.getLogger(__name__)
@@ -607,6 +608,8 @@ def main():
         num_training_steps=args.max_train_steps,
     )
 
+    writer = SummaryWriter(f'runs/{args.output_dir}/')
+
     # Train!
     total_batch_size = args.per_device_train_batch_size * \
         accelerator.num_processes * args.gradient_accumulation_steps
@@ -628,18 +631,25 @@ def main():
 
     for epoch in range(args.num_train_epochs):
         model.train()
+        train_loss_sum = 0.0
+        val_loss_sum = 0.0
+        steps = 0
         for step, batch in enumerate(train_dataloader):
             # logger.info(tokenizer.batch_decode(sequences=batch["input_ids"]))
             outputs = model(**batch)
             loss = outputs.loss
             loss = loss / args.gradient_accumulation_steps
             accelerator.backward(loss)
+
+            
             if step % args.gradient_accumulation_steps == 0 or step == len(train_dataloader) - 1:
                 optimizer.step()
                 lr_scheduler.step()
                 optimizer.zero_grad()
                 progress_bar.update(1)
                 completed_steps += 1
+                train_loss_sum += loss
+                steps += 1
 
             if completed_steps >= args.max_train_steps:
                 break
@@ -651,12 +661,15 @@ def main():
                 outputs = model(**batch)
 
             loss = outputs.loss
+            val_loss_sum += loss
             losses.append(accelerator.gather(
                 loss.repeat(args.per_device_eval_batch_size)))
 
         losses = torch.cat(losses)
         losses = losses[: len(eval_dataset)]
         perplexity = math.exp(torch.mean(losses))
+        writer.add_scalar('Loss/train', train_loss_sum/steps, epoch)
+        writer.add_scalar('Loss/val', val_loss_sum/steps, epoch)
 
         logger.info(f"epoch {epoch}: perplexity: {perplexity}")
 
