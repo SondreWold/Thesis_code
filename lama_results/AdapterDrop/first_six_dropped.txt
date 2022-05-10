@@ -1,0 +1,4 @@
+Results for model loaded from path ./models/first_six_dropped with tokenizer: bert-base-uncased 
+Precision@1: 0.13867831245880027 
+Precision@10: 0.39831905075807517 
+Precision@100: 0.682226433750824 

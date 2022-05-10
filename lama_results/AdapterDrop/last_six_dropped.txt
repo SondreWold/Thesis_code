@@ -1,0 +1,4 @@
+Results for model loaded from path ./models/last_six_dropped with tokenizer: bert-base-uncased 
+Precision@1: 0.1462178642056691 
+Precision@10: 0.39662986156888597 
+Precision@100: 0.6941331575477917 

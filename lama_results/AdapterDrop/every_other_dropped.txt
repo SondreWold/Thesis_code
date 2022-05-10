@@ -1,0 +1,6 @@
+Results for model loaded from path ./models/every_other with tokenizer: bert-base-uncased 
+Precision@1: 0.15717699406723798 
+Precision@10: 0.4246456822676335 
+Precision@100: 0.7146094264996704 
+
+Dropped adapters from layers: 1,3,5,7,9
